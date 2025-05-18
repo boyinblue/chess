@@ -137,8 +137,8 @@ def checkAvailable(cursor):
     if objName == "BlackPawn":
         if getObjName(cursor, 0, 1) == "Empty":
             availables.append([x, y+1])
-        if y == 1 and getObjName(cursor, 0, 2) == "Empty":
-            availables.append([x, y+2])
+            if y == 1 and getObjName(cursor, 0, 2) == "Empty":
+                availables.append([x, y+2])
         if getObjName(cursor, 1, 1).startswith(getEnermyPrefix()):
             availables.append([x+1, y+1])
         if getObjName(cursor, -1, 1).startswith(getEnermyPrefix()):
@@ -146,8 +146,8 @@ def checkAvailable(cursor):
     elif objName == "WhitePawn":
         if getObjName(cursor, 0, -1) == "Empty":
             availables.append([x, y-1])
-        if y == 6 and getObjName(cursor, 0, -2) == "Empty":
-            availables.append([x, y-2])
+            if y == 6 and getObjName(cursor, 0, -2) == "Empty":
+                availables.append([x, y-2])
         if getObjName(cursor, 1, -1).startswith(getEnermyPrefix()):
             availables.append([x+1, y-1])
         if getObjName(cursor, -1, -1).startswith(getEnermyPrefix()):

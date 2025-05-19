@@ -48,18 +48,23 @@ def draw_availables(image):
         x, y = myChess.getXY(myChess, pos)
         cv2.circle(image, (x * 49 + 24, y * 49 + 24), 10, (0,0,255), 2)
 
+def delete_info_background(image):
+    pt1 = ( 400, 0 )
+    pt2 = ( 800, 400 )
+    cv2.rectangle(image, pt1, pt2, (255,255,255), -1)
+
 def draw_info(image):
+    delete_info_background(image)
+
     turn = myChess.getThisTurnName(myChess)
     if turn == "White":
-        fColor = (255, 255, 255)
-        bColor = (0, 0, 0)
+        textPos = [ 400, 375 ]
     else:
-        fColor = (0, 0, 0)
-        bColor = (255, 255, 255)
-    pt1 = ( 400, 10 )
-    pt2 = ( 500, 30 )
-    cv2.rectangle(image, pt1, pt2, bColor, -1)
-    cv2.putText(image, turn, [ 400, 25 ], 1, 1, fColor, 2)
+        textPos = [ 400, 25 ]
+    cv2.putText(image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
+
+    cv2.putText(image, "ESC : Exit", [ 500, 25 ], 1, 1, (255, 255, 0))
+    cv2.putText(image, "R : Reset", [ 500, 50 ], 1, 1, (255, 255, 0))
 
 def redraw(image):
     newPos = myChess.need_to_redraw

@@ -1,262 +1,189 @@
-import cv2
+# Check Class
 
-##################################################
-# Global Variables
-##################################################
+import copy
 
-array = [
-    [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
-    [ 'BlackPawn',  'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn' ],
-    [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-    [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-    [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-    [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-    [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
-    [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
-]
+class Chess:
+    def __init__(self):
+        turn = "White"
+        self.array = copy.deepcopy(self.array_org)
 
-objImages = {}
+        self.availables.clear()
+        self.need_to_redraw.clear()
 
-cursor = [8, 8]
-turn = "White"
+        self.cursor[0] = 8
+        self.cursor[1] = 8
 
-availables = []
+    def reset(self):
+        self.__init__(self)
 
-##################################################
-# Drawing Functions
-##################################################
-def loadObjImages(objImages):
-    for y in range(8):
-        for x in range(8):
-            obj_name = array[y][x]
-            img = cv2.imread(f"img/{obj_name}.png")
-            objImages[obj_name] = img
-
-def draw_rectangle(image, x, y):
-    pt1 = ( x * 49 + 1, y * 49 + 1 )
-    pt2 = ( x * 49 + 49, y * 49 + 49 )
-    cv2.rectangle(image, pt1, pt2, (0, 0, 0), 1)
-
-def draw_object(image, x, y, objName):
-    print(f"Draw Obj x={x}, y={y}")
-
-    x = x * 49 + 1
-    y = y * 49 + 1
-    image[y:y+49, x:x+49] = objImages[objName]
-
-def draw_cursor(image, cursor):
-    if cursor[0] < 8 and cursor[1] < 8:
-        print(f"Draw Cursor x={cursor[0]}, y={cursor[1]}")
-        cv2.circle(image, (cursor[0] * 49 + 24, cursor[1] * 49 + 24), 10, (255,255,0), 2)
-
-def draw_availables(image, availables):
-    for pos in availables:
-        print(f"Draw Available x={pos[0]}, y={pos[1]}")
-        cv2.circle(image, (pos[0] * 49 + 24, pos[1] * 49 + 24), 10, (0,0,255), 2)
-
-def updateArea(image, pos):
-    if pos[0] >= 8 or pos[1] >= 8:
-        return
+    # Basic I/O functions
+    def getObjectName(self, x, y):
+        if x < 0 or x >= 8 or y < 0 or y >= 8:
+            return ""
+        return str(self.array[y][x])
     
-    print(f"Update Area x={pos[0]}, y={pos[1]}")
-    draw_object(image, pos[0], pos[1], array[pos[1]][pos[0]])
-    draw_rectangle(image, pos[0], pos[1])
+    # Basic I/O functions
+    def getThisTurnName(self):
+        return self.turn
+    
+    def getNextTurnName(self):
+        if self.turn == "White":
+            return "Black"
+        return "White"
 
-def updateWindowAll(image):
-    for y in range(8):
-        for x in range(8):
-            draw_object(image, x, y, array[y][x])
-            draw_rectangle(image, x, y)
+    def nextTurn(self):
+        self.turn = self.getNextTurnName(self)
 
-    cv2.imshow('Chess', image)
+    def getPosName(self, x, y):
+        posName = f"{y}{self.ColName[x]}"
+        return posName
+    
+    def getXY(self, posName):
+        y = ord(posName[0])-ord('0')
+        x = ord(posName[1])-ord('A')
+        return x, y
+    
+    # Check Movement functions
+    def addAvailable(self, x, y):
+        posName = self.getPosName(self, x, y)
+        print(f"Add Available {posName}")
+        self.availables.append(posName)
 
-##################################################
-# Check Movement
-##################################################
-def getObjName(cursor, deltaX, deltaY):
-    x = cursor[0]
-    y = cursor[1]
-    if x + deltaX < 0 or x + deltaX >= 8:
-        return ""
-    if y + deltaY < 0 or y + deltaY >= 8:
-        return ""
-    return str(array[y + deltaY][x + deltaX])
+    def addRedraw(self, x, y):
+        posName = self.getPosName(self, x, y)
+        self.addRedrawByPosName(self, posName)
 
-def getMyPrefix():
-    return turn
+    def addRedrawByPosName(self, posName):
+        self.need_to_redraw.append(posName)
+    
+    def checkUnitAvailable(self, x, y):
+        objectName = str( self.getObjectName(self, x, y) )
+        if objectName == "" or objectName.startswith(self.getThisTurnName(self)):
+            return False
+        self.addAvailable(self, x, y)
+        if objectName.startswith(self.getNextTurnName(self)):
+            return False
+        return True
+        
+    def checkAvailableByDirList(self, x, y, dirs, count):
+        for dir in dirs:
+            for i in range(0, count):
+                if False == self.checkUnitAvailable(self, x + dir[0] * (i+1), y + dir[1] * (i+1)):
+                    break
 
-def getEnermyPrefix():
-    if turn == "White":
-        return "Black"
-    return "White"
+    def checkAvailable_Pawn(self):
+        y_offset = 1
+        y_org_pos = 1
+        objName = str( self.getObjectName(self, self.cursor[0], self.cursor[1]) )
+        if( objName.startswith("White") ):
+            y_offset = -1
+            y_org_pos = 6
 
-def checkAvailable_RightAngle(cursor, count):
-    dirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
-    for dir in dirs:
-        for i in range(1, count):
-            objName = getObjName(cursor, dir[0] * i, dir[1] * i)
-            if objName == "" or objName.startswith(getMyPrefix()):
-                break
-            elif objName.startswith(getEnermyPrefix()):
-                availables.append([cursor[0] + dir[0] * i, cursor[1] + dir[1] * i])
-                break
-            else:
-                availables.append([cursor[0] + dir[0] * i, cursor[1] + dir[1] * i])
+        if self.getObjectName(self, self.cursor[0], self.cursor[1] + y_offset) == "Empty":
+            self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset)
+            if self.cursor[1] == y_org_pos and self.getObjectName(self, self.cursor[0], self.cursor[1] + y_offset * 2) == "Empty":
+                self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset * 2)
+        if self.getObjectName(self, self.cursor[0] + 1, self.cursor[1] + y_offset).startswith(self.getNextTurnName(self)):
+            self.addAvailable(self, self.cursor[0] + 1, self.cursor[1] + y_offset)
+        if self.getObjectName(self, self.cursor[0] - 1, self.cursor[1] + y_offset).startswith(self.getNextTurnName(self)):
+            self.addAvailable(self, self.cursor[0] - 1, self.cursor[1] + y_offset)
 
-def checkAvailable_Diagonal(cursor, count):
-    dirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
-    for dir in dirs:
-        for i in range(1, count):
-            objName = getObjName(cursor, dir[0] * i, dir[1] * i)
-            if objName == "" or objName.startswith(getMyPrefix()):
-                break
-            elif objName.startswith(getEnermyPrefix()):
-                availables.append([cursor[0] + dir[0] * i, cursor[1] + dir[1] * i])
-                break
-            else:
-                availables.append([cursor[0] + dir[0] * i, cursor[1] + dir[1] * i])
+    def checkAvailable(self, x, y):
+        objName = self.getObjectName(self, x, y)
 
-def checkAvailable_Knight(cursor):
-    dirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
-    for dir in dirs:
-        objName = getObjName(cursor, dir[0], dir[1])
-        if objName == "" or objName.startswith(getMyPrefix()):
-            continue
+        print(f"Check available x={x}, y={y}, objName={objName}")
+
+        if objName.endswith("King"):
+            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 1)
+        elif objName.endswith("Queen"):
+            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 7)
+        elif objName.endswith("Bishop"):
+            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.DiagonalDirs, 7)
+        elif objName.endswith("Rook"):
+            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.RightAngleDirs, 7)
+        elif objName.endswith("Knight"):
+            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.KnightDirs, 1)
+        elif objName.endswith("Pawn"):
+            self.checkAvailable_Pawn(self)
+
+    # Mouse Event
+    def selectObject(self, x, y):
+        objName = str( self.getObjectName(self, x, y))
+        if objName.startswith(self.getThisTurnName(self)):
+            self.cursor[0] = x
+            self.cursor[1] = y
+            self.checkAvailable(self, x, y)
+            self.addRedraw(self, x, y)
+            for posName in self.availables:
+                self.addRedrawByPosName(self, posName)
         else:
-            availables.append([cursor[0] + dir[0], cursor[1] + dir[1]])
+            print(f"Not Turn : turn={self.getThisTurnName(self)}")
 
-def checkAvailable(cursor):
-    global availables
+    def cancelCursor(self, x,y):
+        self.cursor[0] = 8
+        self.cursor[1] = 8
+        self.addRedraw(self, x, y)
+        for posName in self.availables:
+            self.addRedrawByPosName(self, posName)
+        self.availables.clear()
 
-    x = cursor[0]
-    y = cursor[1]
-    objName = str(array[y][x])
+    def movement(self, newX, newY):
+        self.array[newY][newX] = self.array[self.cursor[1]][self.cursor[0]]
+        self.array[self.cursor[1]][self.cursor[0]] = 'Empty'
+        self.cancelCursor(self, self.cursor[0], self.cursor[1])
+        self.nextTurn(self)
 
-    print(f"Check available x={x}, y={y}, objName={objName}")
+    def clicked(self, x, y):
+        print(f"")
+        print(f"Clicked x={x}, y={y}")
 
-    if objName == "BlackPawn":
-        if getObjName(cursor, 0, 1) == "Empty":
-            availables.append([x, y+1])
-            if y == 1 and getObjName(cursor, 0, 2) == "Empty":
-                availables.append([x, y+2])
-        if getObjName(cursor, 1, 1).startswith(getEnermyPrefix()):
-            availables.append([x+1, y+1])
-        if getObjName(cursor, -1, 1).startswith(getEnermyPrefix()):
-            availables.append([x-1, y+1])
-    elif objName == "WhitePawn":
-        if getObjName(cursor, 0, -1) == "Empty":
-            availables.append([x, y-1])
-            if y == 6 and getObjName(cursor, 0, -2) == "Empty":
-                availables.append([x, y-2])
-        if getObjName(cursor, 1, -1).startswith(getEnermyPrefix()):
-            availables.append([x+1, y-1])
-        if getObjName(cursor, -1, -1).startswith(getEnermyPrefix()):
-            availables.append([x-1, y-1])
-    elif objName.endswith("King"):
-        checkAvailable_RightAngle(cursor, 2)
-        checkAvailable_Diagonal(cursor, 2)
-    elif objName.endswith("Queen"):
-        checkAvailable_RightAngle(cursor, 8)
-        checkAvailable_Diagonal(cursor, 8)
-    elif objName.endswith("Bishop"):
-        checkAvailable_Diagonal(cursor, 8)
-    elif objName.endswith("Rook"):
-        checkAvailable_RightAngle(cursor, 8)
-    elif objName.endswith("Knight"):
-        checkAvailable_Knight(cursor)
+        # Invalid Range
+        if self.cursor[0] >= 8 or self.cursor[1] >= 8:
+            self.selectObject(self, x, y)
+            return
 
-##################################################
-# Mouse Event
-##################################################
-def selectNew(x, y, cursor):
-    global turn
+        # Cancel Cursor
+        if self.cursor[0] == x and self.cursor[1] == y:
+            self.cancelCursor(self, x, y)
+            return
 
-    print(f"Select New x={x}, y={y}")
+        # Move Cursor
+        for pt in self.availables:
+            posX, posY = self.getXY(self, pt)
+            if posX == x and posY == y:
+                self.movement(self, x, y)
 
-    objName = array[y][x]
-    print(f"ObjName : {objName}")
-    if objName.startswith(turn):
-        cursor[0] = x
-        cursor[1] = y
-        updateArea(image, cursor)
-        draw_cursor(image, cursor)
-        checkAvailable(cursor)
-        draw_availables(image, availables)
-        cv2.imshow('Chess', image)
-    else:
-        print(f"Not Turn : turn={turn}")
+    array_org = [
+        [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
+        [ 'BlackPawn',  'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn' ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
+        [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
+    ]
 
-def cancelCursor(x,y, cursor):
-    updateArea(image, cursor)
-    cursor[0] = 8
-    cursor[1] = 8
-    for pt in availables:
-        updateArea(image, pt)
-    availables.clear()
-    cv2.imshow('Chess', image)
-
-def nextTurn():
-    global turn
-    turn = getEnermyPrefix()
-
-def movement(cursor, newpos):
-    array[newpos[1]][newpos[0]] = array[cursor[1]][cursor[0]]
-    array[cursor[1]][cursor[0]] = 'Empty'
-    updateArea(image, cursor)
-    updateArea(image, newpos)
-    for pt in availables:
-        if pt == newpos:
-            continue
-        updateArea(image, pt)
-    availables.clear()
-    cursor[0] = 8
-    cursor[1] = 8
-    cv2.imshow('Chess', image)
-
-    nextTurn()
-
-def clicked(x,y):
-    global cursor
+    array = [
+        [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
+        [ 'BlackPawn',  'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn' ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
+        [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
+        [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
+    ]
     
-    xIdx = int(x / 49)
-    yIdx = int(y / 49)
+    ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
 
-    print(f"Click x={xIdx}, y={yIdx}")
-    print(f"Cursor x={cursor[0]}, y={cursor[1]}")
+    RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
+    DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
+    EveryDirs = RightAngleDirs + DiagonalDirs
+    KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
 
-    # Invalid Range
-    if cursor[0] >=8 or cursor[1] >= 8:
-        selectNew(xIdx, yIdx, cursor)
-        return
+    cursor = [8, 8]
+    turn = "White"
 
-    # Cancel Cursor
-    if cursor[0] == xIdx and cursor[1] == yIdx:
-        cancelCursor(xIdx, yIdx, cursor)
-        return
-
-    # Move Cursor
-    for pt in availables:
-        if pt[0] == xIdx and pt[1] == yIdx:
-            movement(cursor, pt)
-
-def mouse_event(event, x, y, flags, param):
-    if event == cv2.EVENT_FLAG_LBUTTON:
-        clicked(x,y)
-
-##################################################
-# Initialization
-##################################################
-loadObjImages(objImages)
-
-image = cv2.imread('background.png')
-updateWindowAll(image)
-cv2.setMouseCallback("Chess", mouse_event, image)
-
-##################################################
-# Main Task
-##################################################
-while True:
-    k = cv2.waitKey(0) & 0xFF
-    if k == 27:
-        cv2.destroyAllWindows()
-        break
+    availables = []
+    need_to_redraw = []

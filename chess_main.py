@@ -5,7 +5,10 @@ import chess
 # Global Variables
 ##################################################
 objImages = {}
-obj_size = 49
+objImages_small = {}
+obj_width = 0
+obj_height = 0
+scale = 1.5
 
 myChess = chess.Chess
 
@@ -13,6 +16,8 @@ myChess = chess.Chess
 # Drawing Functions
 ##################################################
 def loadObjImages(objImages):
+    global obj_width, obj_height
+
     objs = [
         'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackPawn',
         'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhitePawn',
@@ -21,20 +26,34 @@ def loadObjImages(objImages):
 
     for obj in objs:
         img = cv2.imread(f"img/{obj}.png")
-        objImages[obj] = img
+        objImages[obj] = cv2.resize(img, (int(img.shape[1] * scale), int(img.shape[0] * scale)))
+        objImages_small[obj] = cv2.resize(img, (int(img.shape[0] * scale / 2), int(img.shape[1] * scale / 2)))
+        obj_width = objImages[obj].shape[1]
+        obj_height = objImages[obj].shape[0]
+
+    print(f"Object Size : {obj_width} x {obj_height}")
 
 def draw_object(image, x, y, objName):
-    print(f"Draw Obj x={x}, y={y}")
+    print(f"Draw Obj x={x}, y={y}, name={objName}")
 
     # Draw Object
-    pX = x * 49 + 1
-    pY = y * 49 + 1
-    image[pY:pY+49, pX:pX+49] = objImages[objName]
+    pX = x * obj_width + 1
+    pY = y * obj_height + 1
+    image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
 
     # Draw Rectangle
-    pt1 = ( x * 49 + 1, y * 49 + 1 )
-    pt2 = ( x * 49 + 49, y * 49 + 49 )
+    pt1 = ( x * obj_width + 1, y * obj_height + 1 )
+    pt2 = ( x * obj_width + obj_width, y * obj_height + obj_height )
     cv2.rectangle(image, pt1, pt2, (0, 0, 0), 1)
+
+def drawKilledObject(image, x, y, objName):
+    global obj_width, obj_height
+    print(f"Draw Killed Obj x={x}, y={y}")
+
+    # Draw Object
+    pX = int(500 * scale + x * obj_width + 1)
+    pY = int(50 * scale + y * obj_height + 1)
+    image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
 
 def draw_cursor(image):
     # Draw Cursor
@@ -42,16 +61,16 @@ def draw_cursor(image):
     if cursor[0] >= 8 or cursor[1] >= 8:
         return
     print(f"Draw Cursor")
-    cv2.circle(image, (cursor[0] * 49 + 24, cursor[1] * 49 + 24), 10, (255,255,0), 2)
+    cv2.circle(image, (int(cursor[0] * obj_width + obj_width / 2), int(cursor[1] * obj_height + obj_height / 2)), int(obj_width / 3), (255,255,0), 2)
 
 def draw_availables(image):
     for pos in myChess.availables:
         x, y = myChess.getXY(myChess, pos)
-        cv2.circle(image, (x * 49 + 24, y * 49 + 24), 10, (0,0,255), 2)
+        cv2.circle(image, (int(x * obj_width + obj_width / 2), int(y * obj_height + obj_height / 2)), int(obj_width / 3), (0,0,255), 2)
 
 def delete_info_background(image):
-    pt1 = ( 400, 0 )
-    pt2 = ( 800, 400 )
+    pt1 = ( int(400 * scale), 0 )
+    pt2 = ( int(800 * scale), int(400 * scale) )
     cv2.rectangle(image, pt1, pt2, (255,255,255), -1)
 
 def draw_info(image):
@@ -59,22 +78,22 @@ def draw_info(image):
 
     turn = myChess.getThisTurnName(myChess)
     if turn == "White":
-        textPos = [ 400, 375 ]
+        textPos = [ int(400 * scale), int(375 * scale) ]
     else:
-        textPos = [ 400, 25 ]
+        textPos = [ int(400 * scale), int(25 * scale) ]
     cv2.putText(image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
 
-    cv2.putText(image, "ESC : Exit", [ 500, 25 ], 1, 1, (255, 255, 0), 2)
-    cv2.putText(image, "R : Reset", [ 500, 50 ], 1, 1, (255, 255, 0), 2)
+    cv2.putText(image, "ESC : Exit", [ int(500 * scale), 25 ], 1, 1, (255, 255, 0), 2)
+    cv2.putText(image, "R : Reset", [ int(500 * scale), 50 ], 1, 1, (255, 255, 0), 2)
 
     if myChess.gameover:
-        cv2.putText(image, "GAME OVER!", [ 400, 50 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(image, "GAME OVER!", [ int(400 * scale), int(50 * scale) ], 1, 1, (0, 0, 255), 2)
 
     i = 0
     for killedObj in myChess.arrKilled:
         if killedObj == None:
             break
-        draw_object(image, int(9 + i % 4), int(1 + i / 4), killedObj)
+        drawKilledObject(image, int(i % 4), int(1 + i / 4), killedObj)
         i = i + 1
 
 def redraw(image):
@@ -113,8 +132,10 @@ def updateWindowAll(image):
 # Mouse Event
 ##################################################
 def mouse_event(event, x, y, flags, param):
+    global obj_width, obj_height
+
     if event == cv2.EVENT_FLAG_LBUTTON:
-        myChess.clicked(myChess, int(x / 49), int(y / 49))
+        myChess.clicked(myChess, int(x / obj_width), int(y / obj_height))
         redraw(image)
 
 ##################################################
@@ -122,7 +143,10 @@ def mouse_event(event, x, y, flags, param):
 ##################################################
 loadObjImages(objImages)
 
-image = cv2.imread('img/background.png')
+image_org = cv2.imread('img/background.png')
+image = cv2.resize(image_org, (int(image_org.shape[1] * scale), int(image_org.shape[0] * scale)))
+print(f"Image Size({image.shape[1]} x {image.shape[0]} x {image.shape[2]})")
+
 updateWindowAll(image)
 cv2.setMouseCallback("Chess", mouse_event, image)
 

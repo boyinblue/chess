@@ -41,9 +41,9 @@ def draw_object(image, x, y):
     print(f"Draw Obj x={x}, y={y}, name={objName}")
     pX = x * obj_width + 1
     pY = y * obj_height + 1
-    #image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
-    mask = objImages[objName][:,:,3]
-    bit = objImages[objName][:,:,0:2]
+    image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
+    #mask = objImages[objName][:,:,3]
+    #bit = objImages[objName][:,:,0:2]
 
     # Draw Rectangle
     pt1 = ( x * obj_width + 1, y * obj_height + 1 )

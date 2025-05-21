@@ -4,10 +4,11 @@ import copy
 
 class Chess:
     def __init__(self):
-        turn = "White"
-        winner = ""
-        gameover = False
+        self.turn = "White"
+        self.winner = ""
+        self.gameover = False
         self.array = copy.deepcopy(self.array_org)
+        self.arrKilled.clear()
 
         self.availables.clear()
         self.need_to_redraw.clear()

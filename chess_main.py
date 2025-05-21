@@ -5,12 +5,7 @@ import chess
 # Global Variables
 ##################################################
 objImages = {}
-
-objs = [
-        'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackPawn',
-        'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhitePawn',
-        'Empty'
-]
+obj_size = 49
 
 myChess = chess.Chess
 
@@ -18,6 +13,12 @@ myChess = chess.Chess
 # Drawing Functions
 ##################################################
 def loadObjImages(objImages):
+    objs = [
+        'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackPawn',
+        'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhitePawn',
+        'Empty'
+    ]
+
     for obj in objs:
         img = cv2.imread(f"img/{obj}.png")
         objImages[obj] = img
@@ -71,6 +72,8 @@ def draw_info(image):
 
     i = 0
     for killedObj in myChess.arrKilled:
+        if killedObj == None:
+            break
         draw_object(image, int(9 + i % 4), int(1 + i / 4), killedObj)
         i = i + 1
 
@@ -119,7 +122,7 @@ def mouse_event(event, x, y, flags, param):
 ##################################################
 loadObjImages(objImages)
 
-image = cv2.imread('background.png')
+image = cv2.imread('img/background.png')
 updateWindowAll(image)
 cv2.setMouseCallback("Chess", mouse_event, image)
 

@@ -63,8 +63,16 @@ def draw_info(image):
         textPos = [ 400, 25 ]
     cv2.putText(image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
 
-    cv2.putText(image, "ESC : Exit", [ 500, 25 ], 1, 1, (255, 255, 0))
-    cv2.putText(image, "R : Reset", [ 500, 50 ], 1, 1, (255, 255, 0))
+    cv2.putText(image, "ESC : Exit", [ 500, 25 ], 1, 1, (255, 255, 0), 2)
+    cv2.putText(image, "R : Reset", [ 500, 50 ], 1, 1, (255, 255, 0), 2)
+
+    if myChess.gameover:
+        cv2.putText(image, "GAME OVER!", [ 400, 50 ], 1, 1, (0, 0, 0), 2)
+
+    i = 0
+    for killedObj in myChess.arrKilled:
+        draw_object(image, int(9 + i % 4), int(1 + i / 4), killedObj)
+        i = i + 1
 
 def redraw(image):
     newPos = myChess.need_to_redraw

@@ -5,6 +5,8 @@ import copy
 class Chess:
     def __init__(self):
         turn = "White"
+        winner = ""
+        gameover = False
         self.array = copy.deepcopy(self.array_org)
 
         self.availables.clear()
@@ -35,7 +37,8 @@ class Chess:
         self.turn = self.getNextTurnName(self)
 
     def getPosName(self, x, y):
-        posName = f"{y}{self.ColName[x]}"
+        ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
+        posName = f"{y}{ColName[x]}"
         return posName
     
     def getXY(self, posName):
@@ -128,12 +131,21 @@ class Chess:
         self.availables.clear()
 
     def movement(self, newX, newY):
+        if str(self.array[newY][newX]).endswith("King"):
+            self.gameover = True
+            self.winner = self.getThisTurnName(self)
+        if self.array[newY][newX] != "Empty":
+            self.arrKilled.append(self.array[newY][newX])
         self.array[newY][newX] = self.array[self.cursor[1]][self.cursor[0]]
         self.array[self.cursor[1]][self.cursor[0]] = 'Empty'
         self.cancelCursor(self, self.cursor[0], self.cursor[1])
-        self.nextTurn(self)
+        if self.gameover != True:
+            self.nextTurn(self)
 
     def clicked(self, x, y):
+        if self.gameover == True:
+            return
+
         print(f"")
         print(f"Clicked x={x}, y={y}")
 
@@ -174,8 +186,8 @@ class Chess:
         [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
         [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
     ]
-    
-    ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
+
+    arrKilled = []
 
     RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
     DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
@@ -184,6 +196,9 @@ class Chess:
 
     cursor = [8, 8]
     turn = "White"
+    winner = ""
+    gameover = False
+    AI = True
 
     availables = []
     need_to_redraw = []

@@ -11,6 +11,7 @@ obj_height = 0
 scale = 1.5
 
 myChess = chess.Chess
+myChess.reset(myChess)
 
 ##################################################
 # Drawing Functions
@@ -33,10 +34,11 @@ def loadObjImages(objImages):
 
     print(f"Object Size : {obj_width} x {obj_height}")
 
-def draw_object(image, x, y, objName):
-    print(f"Draw Obj x={x}, y={y}, name={objName}")
+def draw_object(image, x, y):
+    objName = myChess.getObjectFullName(myChess, x, y)
 
     # Draw Object
+    print(f"Draw Obj x={x}, y={y}, name={objName}")
     pX = x * obj_width + 1
     pY = y * obj_height + 1
     image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
@@ -51,9 +53,9 @@ def drawKilledObject(image, x, y, objName):
     print(f"Draw Killed Obj x={x}, y={y}")
 
     # Draw Object
-    pX = int(500 * scale + x * obj_width + 1)
-    pY = int(50 * scale + y * obj_height + 1)
-    image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
+    pX = int(500 * scale + x * obj_width / 2 + 1)
+    pY = int(50 * scale + y * obj_height / 2 + 1)
+    image[pY:int(pY + obj_height / 2), pX:int(pX + obj_width / 2)] = objImages_small[objName]
 
 def draw_cursor(image):
     # Draw Cursor
@@ -65,6 +67,7 @@ def draw_cursor(image):
 
 def draw_availables(image):
     for pos in myChess.availables:
+        print(f"Draw Availables {pos}")
         x, y = myChess.getXY(myChess, pos)
         cv2.circle(image, (int(x * obj_width + obj_width / 2), int(y * obj_height + obj_height / 2)), int(obj_width / 3), (0,0,255), 2)
 
@@ -99,14 +102,11 @@ def draw_info(image):
 def redraw(image):
     newPos = myChess.need_to_redraw
     for posName in newPos:
+        print(f"Redraw {posName}")
         if posName == []:
             continue
-        try:
-            x, y = myChess.getXY(myChess, posName)
-        except:
-            print(f"Error {posName} to XY")
-        objName = myChess.getObjectName(myChess, x, y)
-        draw_object(image, x, y, objName)
+        x, y = myChess.getXY(myChess, posName)
+        draw_object(image, x, y)
 
     draw_cursor(image)
     draw_availables(image)
@@ -118,8 +118,7 @@ def redraw(image):
 def updateWindowAll(image):
     for y in range(8):
         for x in range(8):
-            objName = myChess.getObjectName(myChess, x, y)
-            draw_object(image, x, y, objName)
+            draw_object(image, x, y)
 
     draw_cursor(image)
     draw_availables(image)

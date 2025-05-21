@@ -2,12 +2,30 @@
 
 import copy
 
+class Object:
+    def __init__(self, name, color):
+        self.name = name
+        self.color = color
+        self.moved = False
+
+    def getFullName(self):
+        return f"{self.color}{self.name}"
+
+    name = ""
+    color = ""
+    moved = False
+
 class Chess:
     def __init__(self):
         self.turn = "White"
         self.winner = ""
         self.gameover = False
-        self.array = copy.deepcopy(self.array_org)
+        for x in range(8):
+            for y in range(8):
+                obj_name = self.array_org[y][x]
+                print(f"Generate Object x={x}, y={y}, {obj_name}")
+                if obj_name != "Empty":
+                    self.array[y][x] = Object(obj_name[5:], obj_name[0:5])
         self.arrKilled.clear()
 
         self.availables.clear()
@@ -20,10 +38,48 @@ class Chess:
         self.__init__(self)
 
     # Basic I/O functions
+    def getObject(self, x, y):
+        if not self.isValidPos(self, x, y):
+            return None
+        return self.array[y][x]
+    
     def getObjectName(self, x, y):
-        if x < 0 or x >= 8 or y < 0 or y >= 8:
+        obj = self.getObject(self, x, y)
+        if obj == None:
             return ""
-        return str(self.array[y][x])
+        return obj.name
+    
+    def getObjectFullName(self, x, y):
+        obj = self.getObject(self, x, y)
+        if obj == None:
+            return "Empty"
+        return obj.getFullName()
+    
+    def getObjectColor(self, x, y):
+        obj = self.getObject(self, x, y)
+        if obj == None:
+            return ""
+        return obj.color
+    
+    def isValidPos(self, x, y):
+        if x < 0 or x >= 8 or y < 0 or y >= 8:
+            return False
+        return True
+    
+    def isEmpty(self, x, y):
+        if self.isValidPos(self, x, y) and self.array[y][x] == None:
+            return True
+        return False
+    
+    def isEnermy(self, x, y):
+        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.getNextTurnName(self):
+            return True
+        return False
+    
+    def isAlly(self, x, y):
+        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.getThisTurnName(self):
+            return True
+        return False
     
     # Basic I/O functions
     def getThisTurnName(self):
@@ -58,16 +114,19 @@ class Chess:
         self.addRedrawByPosName(self, posName)
 
     def addRedrawByPosName(self, posName):
+        print(f"Add Redraw {posName}")
         self.need_to_redraw.append(posName)
     
     def checkUnitAvailable(self, x, y):
-        objectName = str( self.getObjectName(self, x, y) )
-        if objectName == "" or objectName.startswith(self.getThisTurnName(self)):
+        if not self.isValidPos(self, x, y):
             return False
+        elif self.isAlly(self, x, y):
+            return False
+        
         self.addAvailable(self, x, y)
-        if objectName.startswith(self.getNextTurnName(self)):
+        if self.isEnermy(self, x, y):
             return False
-        return True
+        return True #Continue Checking
         
     def checkAvailableByDirList(self, x, y, dirs, count):
         for dir in dirs:
@@ -78,18 +137,18 @@ class Chess:
     def checkAvailable_Pawn(self):
         y_offset = 1
         y_org_pos = 1
-        objName = str( self.getObjectName(self, self.cursor[0], self.cursor[1]) )
-        if( objName.startswith("White") ):
+        obj = self.getObject(self, self.cursor[0], self.cursor[1])
+        if( obj.color == "White" ):
             y_offset = -1
             y_org_pos = 6
 
-        if self.getObjectName(self, self.cursor[0], self.cursor[1] + y_offset) == "Empty":
+        if self.isEmpty(self, self.cursor[0], self.cursor[1] + y_offset):
             self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset)
-            if self.cursor[1] == y_org_pos and self.getObjectName(self, self.cursor[0], self.cursor[1] + y_offset * 2) == "Empty":
+            if self.cursor[1] == y_org_pos and self.isEmpty(self, self.cursor[0], self.cursor[1] + y_offset * 2):
                 self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset * 2)
-        if self.getObjectName(self, self.cursor[0] + 1, self.cursor[1] + y_offset).startswith(self.getNextTurnName(self)):
+        if self.isEnermy(self, self.cursor[0] + 1, self.cursor[1] + y_offset):
             self.addAvailable(self, self.cursor[0] + 1, self.cursor[1] + y_offset)
-        if self.getObjectName(self, self.cursor[0] - 1, self.cursor[1] + y_offset).startswith(self.getNextTurnName(self)):
+        if self.isEnermy(self, self.cursor[0] - 1, self.cursor[1] + y_offset):
             self.addAvailable(self, self.cursor[0] - 1, self.cursor[1] + y_offset)
 
     def checkAvailable(self, x, y):
@@ -97,23 +156,23 @@ class Chess:
 
         print(f"Check available x={x}, y={y}, objName={objName}")
 
-        if objName.endswith("King"):
+        if objName == "King":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 1)
-        elif objName.endswith("Queen"):
+        elif objName == "Queen":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 7)
-        elif objName.endswith("Bishop"):
+        elif objName == "Bishop":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.DiagonalDirs, 7)
-        elif objName.endswith("Rook"):
+        elif objName == "Rook":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.RightAngleDirs, 7)
-        elif objName.endswith("Knight"):
+        elif objName == "Knight":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.KnightDirs, 1)
-        elif objName.endswith("Pawn"):
+        elif objName == "Pawn":
             self.checkAvailable_Pawn(self)
 
     # Mouse Event
     def selectObject(self, x, y):
-        objName = str( self.getObjectName(self, x, y))
-        if objName.startswith(self.getThisTurnName(self)):
+        obj = self.getObject(self, x, y)
+        if obj != None and obj.color == self.getThisTurnName(self):
             self.cursor[0] = x
             self.cursor[1] = y
             self.checkAvailable(self, x, y)
@@ -132,14 +191,27 @@ class Chess:
         self.availables.clear()
 
     def movement(self, newX, newY):
-        if str(self.array[newY][newX]).endswith("King"):
+        # Check Game 
+        obj = self.array[newY][newX]
+        if obj is not None and obj.name == "King":
             self.gameover = True
             self.winner = self.getThisTurnName(self)
-        if self.array[newY][newX] != "Empty":
-            self.arrKilled.append(self.array[newY][newX])
+
+        # Add Killed List
+        if self.isEnermy(self, newX, newY):
+            self.arrKilled.append(self.array[newY][newX].getFullName())
+
+        # Moved Flag On
+        self.array[self.cursor[1]][self.cursor[0]].moved = True
+
+        # Make movement
         self.array[newY][newX] = self.array[self.cursor[1]][self.cursor[0]]
-        self.array[self.cursor[1]][self.cursor[0]] = 'Empty'
+        self.array[self.cursor[1]][self.cursor[0]] = None
+
+        # Cancel Cursor
         self.cancelCursor(self, self.cursor[0], self.cursor[1])
+
+        # Next Turn
         if self.gameover != True:
             self.nextTurn(self)
 
@@ -178,14 +250,14 @@ class Chess:
     ]
 
     array = [
-        [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
-        [ 'BlackPawn',  'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn' ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
-        [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ],
+        [ None, None, None, None, None, None, None, None ]
     ]
 
     arrKilled = []

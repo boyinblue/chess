@@ -26,7 +26,7 @@ def loadObjImages(objImages):
     ]
 
     for obj in objs:
-        img = cv2.imread(f"img/{obj}.png")
+        img = cv2.imread(f"img/{obj}.png", cv2.IMREAD_UNCHANGED)
         objImages[obj] = cv2.resize(img, (int(img.shape[1] * scale), int(img.shape[0] * scale)))
         objImages_small[obj] = cv2.resize(img, (int(img.shape[0] * scale / 2), int(img.shape[1] * scale / 2)))
         obj_width = objImages[obj].shape[1]
@@ -41,7 +41,9 @@ def draw_object(image, x, y):
     print(f"Draw Obj x={x}, y={y}, name={objName}")
     pX = x * obj_width + 1
     pY = y * obj_height + 1
-    image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
+    #image[pY:pY+obj_height, pX:pX+obj_width] = objImages[objName]
+    mask = objImages[objName][:,:,3]
+    bit = objImages[objName][:,:,0:2]
 
     # Draw Rectangle
     pt1 = ( x * obj_width + 1, y * obj_height + 1 )
@@ -134,6 +136,7 @@ def mouse_event(event, x, y, flags, param):
     global obj_width, obj_height
 
     if event == cv2.EVENT_FLAG_LBUTTON:
+        print(f"Color {image[y][x][0]} {image[y][x][1]} {image[y][x][2]} {image[y][x][3]}")
         myChess.clicked(myChess, int(x / obj_width), int(y / obj_height))
         redraw(image)
 
@@ -142,7 +145,7 @@ def mouse_event(event, x, y, flags, param):
 ##################################################
 loadObjImages(objImages)
 
-image_org = cv2.imread('img/background.png')
+image_org = cv2.imread('img/background.png', cv2.IMREAD_UNCHANGED)
 image = cv2.resize(image_org, (int(image_org.shape[1] * scale), int(image_org.shape[0] * scale)))
 print(f"Image Size({image.shape[1]} x {image.shape[0]} x {image.shape[2]})")
 

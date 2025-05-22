@@ -166,6 +166,9 @@ while True:
     if k == 27:
         cv2.destroyAllWindows()
         break
-    elif k == ord('R') or k == ord('r'):
+    elif k == ord('R'):
+        myChess.reset(myChess, True)
+        updateWindowAll(image)
+    elif k == ord('r'):
         myChess.reset(myChess)
         updateWindowAll(image)

@@ -17,6 +17,9 @@ class Object:
 
 class Chess:
     def __init__(self):
+        self.reset(self)
+
+    def reset(self, bug = False):
         self.turn = "White"
         self.winner = ""
         self.gameover = False
@@ -26,6 +29,8 @@ class Chess:
                 print(f"Generate Object x={x}, y={y}, {obj_name}")
                 if obj_name != "Empty":
                     self.array[y][x] = Object(obj_name[5:], obj_name[0:5])
+                elif bug == False:
+                    self.array[y][x] = None
         self.arrKilled.clear()
 
         self.availables.clear()
@@ -33,9 +38,6 @@ class Chess:
 
         self.cursor[0] = 8
         self.cursor[1] = 8
-
-    def reset(self):
-        self.__init__(self)
 
     # Basic I/O functions
     def getObject(self, x, y):
@@ -107,7 +109,7 @@ class Chess:
     def addAvailable(self, x, y):
         posName = self.getPosName(self, x, y)
         print(f"Add Available {posName}")
-        self.availables.append(posName)
+        self.availables.add(posName)
 
     def addRedraw(self, x, y):
         posName = self.getPosName(self, x, y)
@@ -115,7 +117,7 @@ class Chess:
 
     def addRedrawByPosName(self, posName):
         print(f"Add Redraw {posName}")
-        self.need_to_redraw.append(posName)
+        self.need_to_redraw.add(posName)
     
     def checkUnitAvailable(self, x, y):
         if not self.isValidPos(self, x, y):
@@ -133,6 +135,14 @@ class Chess:
             for i in range(0, count):
                 if False == self.checkUnitAvailable(self, x + dir[0] * (i+1), y + dir[1] * (i+1)):
                     break
+
+    def checkCastling(self, x, y):
+        if self.array[y][x].moved == True:
+            return False
+        if self.array[y][x+1] == None and self.array[y][x+2] == None and self.array[y][x+3] != None and self.array[y][x+3].moved == False:
+            self.addAvailable(self, x + 2, y)
+        if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].moved == False:
+            self.addAvailable(self, x - 2, y)
 
     def checkAvailable_Pawn(self):
         y_offset = 1
@@ -158,6 +168,7 @@ class Chess:
 
         if objName == "King":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 1)
+            self.checkCastling(self, self.cursor[0], self.cursor[1])
         elif objName == "Queen":
             self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 7)
         elif objName == "Bishop":
@@ -190,26 +201,58 @@ class Chess:
             self.addRedrawByPosName(self, posName)
         self.availables.clear()
 
-    def movement(self, newX, newY):
-        # Check Game 
-        obj = self.array[newY][newX]
-        if obj is not None and obj.name == "King":
-            self.gameover = True
-            self.winner = self.getThisTurnName(self)
+    def swap(self, x, y, x2, y2):
+        # Make swap
+        tmp = self.array[x][y]
+        self.array[x][y] = self.array[x2][y2]
+        self.array[x2][y2] = tmp
+
+        self.array[x][y].moved = True
+        self.array[x2][y2].moved = True
+
+    def movement(self, x, y, newX, newY):
+        print(f"Move({x}, {y} => {newX}, {newY})")
 
         # Add Killed List
         if self.isEnermy(self, newX, newY):
             self.arrKilled.append(self.array[newY][newX].getFullName())
 
         # Moved Flag On
-        self.array[self.cursor[1]][self.cursor[0]].moved = True
+        self.array[y][x].moved = True
+
+        # Check Game Over
+        obj = self.array[newY][newX]
+        if obj is not None and obj.name == "King":
+            self.gameover = True
+            self.winner = self.getThisTurnName(self)
 
         # Make movement
-        self.array[newY][newX] = self.array[self.cursor[1]][self.cursor[0]]
-        self.array[self.cursor[1]][self.cursor[0]] = None
+        self.array[newY][newX] = self.array[y][x]
+        self.array[y][x] = None
+        self.addRedraw(self, x, y)
+        self.addRedraw(self, newX, newY)
 
-        # Cancel Cursor
-        self.cancelCursor(self, self.cursor[0], self.cursor[1])
+        # Pawn Upgrade
+        obj = self.array[newY][newX]
+        if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
+            self.array[newY][newX].name = "Queen"
+        elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
+            obj = self.array[newY][newX].name = "Queen"
+
+    def moveTo(self, x, y, newX, newY):
+        # Castling
+        obj = self.array[y][x]
+        if obj is not None and obj.name == "King" and newX - x == 2:
+            # Kingside castling
+            self.movement(self, x, y, x + 2, y)
+            self.movement(self, x + 3, y, x + 1, y)
+        elif obj is not None and obj.name == "King" and  x - newX == 2:
+            # Queenside castling
+            self.movement(self, x, y, x - 2, y)
+            self.movement(self, x - 4, y, x - 1, y)
+        else:
+            # Make Movement
+            self.movement(self, x, y, newX, newY)
 
         # Next Turn
         if self.gameover != True:
@@ -222,7 +265,7 @@ class Chess:
         print(f"")
         print(f"Clicked x={x}, y={y}")
 
-        # Invalid Range
+        # Nothing selected
         if self.cursor[0] >= 8 or self.cursor[1] >= 8:
             self.selectObject(self, x, y)
             return
@@ -236,7 +279,9 @@ class Chess:
         for pt in self.availables:
             posX, posY = self.getXY(self, pt)
             if posX == x and posY == y:
-                self.movement(self, x, y)
+                self.moveTo(self, self.cursor[0], self.cursor[1], posX, posY)
+                self.cancelCursor(self, self.cursor[0], self.cursor[1])
+                break
 
     array_org = [
         [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
@@ -273,5 +318,5 @@ class Chess:
     gameover = False
     AI = True
 
-    availables = []
-    need_to_redraw = []
+    availables = set()
+    need_to_redraw = set()

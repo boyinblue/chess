@@ -1,6 +1,4 @@
-# Check Class
-
-import copy
+import cv2
 
 class Object:
     def __init__(self, name, color):
@@ -15,6 +13,7 @@ class Object:
     color = ""
     moved = False
 
+# Check Class
 class Chess:
     def __init__(self):
         self.reset(self)
@@ -320,3 +319,149 @@ class Chess:
 
     availables = set()
     need_to_redraw = set()
+
+class ChessView(Chess):
+    def __init__(self):
+        print(f"ChessView Initialize")
+        super().__init__()
+
+        self.scale = 1.5
+        self.loadObjImages()
+
+        self.image_org = cv2.imread('img/background.png', cv2.IMREAD_UNCHANGED)
+        self.image = cv2.resize(self.image_org, (int(self.image_org.shape[1] * self.scale), int(self.image_org.shape[0] * self.scale)))
+        print(f"Image Size({self.image.shape[1]} x {self.image.shape[0]} x {self.image.shape[2]})")
+        #cv2.imshow('Chess', self.image)
+
+        self.updateWindowAll()
+        #cv2.setMouseCallback("Chess", mouse_event, self.image)
+
+    def loadObjImages(self):
+        objs = [
+            'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackPawn',
+            'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhitePawn',
+            'Empty'
+        ]
+
+        for obj in objs:
+            img = cv2.imread(f"img/{obj}.png", cv2.IMREAD_UNCHANGED)
+            self.objImages[obj] = cv2.resize(img, (int(img.shape[1] * self.scale), int(img.shape[0] * self.scale)))
+            self.objImages_small[obj] = cv2.resize(img, (int(img.shape[0] * self.scale / 2), int(img.shape[1] * self.scale / 2)))
+            obj_width = self.objImages[obj].shape[1]
+            obj_height = self.objImages[obj].shape[0]
+            print(f"Loading Obj Image : {obj_width} x {obj_height}")
+
+        print(f"Object Size : {obj_width} x {obj_height}")
+
+    def draw_object(self, x, y):
+        obj = self.array[y][x]
+        if obj == None:
+            return
+        objName = obj.getFullName()
+
+        # Draw Object
+        print(f"Draw Obj x={x}, y={y}, name={objName}")
+        pX = x * self.obj_width + 1
+        pY = y * self.obj_height + 1
+        cv2.seamlessClone(self.objImages[objName], self.image, (self.obj_width, self.obj_height), (pX, pY), cv2.NORMAL_CLONE)
+        #self.image[pY:pY+self.obj_height, pX:pX+self.obj_width] = self.objImages[objName]
+        #mask = objImages[objName][:,:,3]
+        #bit = objImages[objName][:,:,0:2]
+
+        # Draw Rectangle
+        pt1 = ( x * self.obj_width + 1, y * self.obj_height + 1 )
+        pt2 = ( x * self.obj_width + self.obj_width, y * self.obj_height + self.obj_height )
+        cv2.rectangle(self.image, pt1, pt2, (0, 0, 0), 1)
+
+    def drawKilledObject(self, x, y, objName):
+        print(f"Draw Killed Obj x={x}, y={y}")
+
+        # Draw Object
+        pX = int(500 * self.scale + x * self.obj_width / 2 + 1)
+        pY = int(50 * self.scale + y * self.obj_height / 2 + 1)
+        self.image[pY:int(pY + self.obj_height / 2), pX:int(pX + self.obj_width / 2)] = self.objImages_small[objName]
+
+    def draw_cursor(self):
+        # Draw Cursor
+        cursor = self.cursor
+        if cursor[0] >= 8 or cursor[1] >= 8:
+            return
+        print(f"Draw Cursor")
+        cv2.circle(self.image, (int(cursor[0] * self.obj_width + self.obj_width / 2), int(cursor[1] * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
+
+    def draw_availables(self):
+        for pos in self.availables:
+            print(f"Draw Availables {pos}")
+            x, y = self.getXY(self, pos)
+            cv2.circle(self.image, (int(x * self.obj_width + self.obj_width / 2), int(y * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (0,0,255), 2)
+
+    def delete_info_background(self):
+        pt1 = ( int(400 * self.scale), 0 )
+        pt2 = ( int(800 * self.scale), int(400 * self.scale) )
+        cv2.rectangle(self.image, pt1, pt2, (255,255,255), -1)
+
+    def draw_info(self):
+        self.delete_info_background()
+
+        turn = self.getThisTurnName()
+        if self.turn == "White":
+            textPos = [ int(400 * self.scale), int(375 * self.scale) ]
+        else:
+            textPos = [ int(400 * self.scale), int(25 * self.scale) ]
+        cv2.putText(self.image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
+
+        cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 25 ], 1, 1, (255, 255, 0), 2)
+        cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 50 ], 1, 1, (255, 255, 0), 2)
+
+        if self.gameover:
+            cv2.putText(self.image, "GAME OVER!", [ int(400 * self.scale), int(50 * self.scale) ], 1, 1, (0, 0, 255), 2)
+
+        i = 0
+        for killedObj in self.arrKilled:
+            if killedObj == None:
+                break
+            self.drawKilledObject(self.image, int(i % 4), int(1 + i / 4), killedObj)
+            i = i + 1
+
+    def redraw(self):
+        newPos = self.need_to_redraw
+        for posName in newPos:
+            print(f"Redraw {posName}")
+            if posName == []:
+                continue
+            x, y = self.getXY(self, posName)
+            self.draw_object(self, x, y)
+
+        self.draw_cursor(self)
+        self.draw_availables(self)
+        self.draw_info(self)
+
+        self.need_to_redraw.clear()
+        cv2.imshow('Chess', self.image)
+
+    def updateWindowAll(self):
+        for y in range(8):
+            for x in range(8):
+                self.draw_object(x, y)
+
+        self.draw_cursor()
+        self.draw_availables()
+        self.draw_info()
+
+        self.need_to_redraw.clear()
+        cv2.imshow('Chess', self.image)
+
+    def mouseClicked(self, x, y):
+        self.clicked(self, int(x / self.obj_width), int(y / self.obj_height))
+        self.redraw(self)
+
+    ##################################################
+    # Initialization
+    ##################################################
+    objImages = {}
+    objImages_small = {}
+    obj_width = 0
+    obj_height = 0
+    scale = 1.5
+    image = None
+    image_org = None

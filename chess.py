@@ -4,14 +4,64 @@ class Object:
     def __init__(self, name, color):
         self.name = name
         self.color = color
-        self.moved = False
+        self.move_cnt = 0
 
     def getFullName(self):
         return f"{self.color}{self.name}"
 
     name = ""
     color = ""
-    moved = False
+    move_cnt = 0
+
+class Movement:
+    def __init__(self, x, y, obj, newX, newY, newObj):
+        self.x = x
+        self.y = y
+        self.obj = obj
+        self.newX = newX
+        self.newY = newY
+        self.newObj = newObj
+
+    def print(self):
+        objName = self.obj.getFullName()
+        newObjName = "Empty"
+        if self.newObj != None:
+            newObjName = self.newObj.getFullName()
+        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName}")
+
+    x = 0
+    y = 0
+    obj = None
+    newX = 0
+    newY = 0
+    newObj = None
+
+class History:
+    def reset(self):
+        self.arrHistory.clear()
+        self.arrKilled.clear()
+
+    def append(self, x, y, obj, newX, newY, newObj):
+        moveInfo = Movement(x, y, obj, newX, newY, newObj)
+        print(f"Move Info : {moveInfo}")
+        self.arrHistory.append(moveInfo)
+
+        if newObj != None:
+            self.arrKilled.append(newObj)
+
+    def rollback(self):
+        if len(self.arrHistory) == 0:
+            return None
+
+        last = self.arrHistory.pop()
+        if last == None:
+            return last
+        last.print()
+
+        return last
+
+    arrHistory = []
+    arrKilled = []
 
 # Check Class
 class Chess:
@@ -30,7 +80,7 @@ class Chess:
                     self.array[y][x] = Object(obj_name[5:], obj_name[0:5])
                 elif bug == False:
                     self.array[y][x] = None
-        self.arrKilled.clear()
+        self.history.reset()
 
         self.availables.clear()
         self.need_to_redraw.clear()
@@ -110,14 +160,6 @@ class Chess:
         print(f"Add Available {posName}")
         self.availables.add(posName)
 
-    def addRedraw(self, x, y):
-        posName = self.getPosName(self, x, y)
-        self.addRedrawByPosName(self, posName)
-
-    def addRedrawByPosName(self, posName):
-        print(f"Add Redraw {posName}")
-        self.need_to_redraw.add(posName)
-    
     def checkUnitAvailable(self, x, y):
         if not self.isValidPos(self, x, y):
             return False
@@ -136,11 +178,11 @@ class Chess:
                     break
 
     def checkCastling(self, x, y):
-        if self.array[y][x].moved == True:
+        if self.array[y][x].move_cnt != 0:
             return False
-        if self.array[y][x+1] == None and self.array[y][x+2] == None and self.array[y][x+3] != None and self.array[y][x+3].moved == False:
+        if self.array[y][x+1] == None and self.array[y][x+2] == None and self.array[y][x+3] != None and self.array[y][x+3].move_cnt == 0:
             self.addAvailable(self, x + 2, y)
-        if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].moved == False:
+        if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].move_cnt == 0:
             self.addAvailable(self, x - 2, y)
 
     def checkAvailable_Pawn(self):
@@ -179,6 +221,15 @@ class Chess:
         elif objName == "Pawn":
             self.checkAvailable_Pawn(self)
 
+    # Redraw Data Functions
+    def addRedraw(self, x, y):
+        posName = self.getPosName(self, x, y)
+        self.addRedrawByPosName(self, posName)
+
+    def addRedrawByPosName(self, posName):
+        print(f"Add Redraw {posName}")
+        self.need_to_redraw.add(posName)
+
     # Mouse Event
     def selectObject(self, x, y):
         obj = self.getObject(self, x, y)
@@ -200,24 +251,49 @@ class Chess:
             self.addRedrawByPosName(self, posName)
         self.availables.clear()
 
+    def clicked(self, x, y):
+        if self.gameover == True:
+            return
+
+        print(f"")
+        print(f"Clicked x={x}, y={y}")
+
+        # Nothing selected
+        if self.cursor[0] >= 8 or self.cursor[1] >= 8:
+            self.selectObject(self, x, y)
+            return
+
+        # Cancel Cursor
+        if self.cursor[0] == x and self.cursor[1] == y:
+            self.cancelCursor(self, x, y)
+            return
+
+        # Move Cursor
+        for pt in self.availables:
+            posX, posY = self.getXY(self, pt)
+            if posX == x and posY == y:
+                self.moveTo(self, self.cursor[0], self.cursor[1], posX, posY)
+                self.cancelCursor(self, self.cursor[0], self.cursor[1])
+                break
+
+    # Actual Movement Functions
     def swap(self, x, y, x2, y2):
         # Make swap
         tmp = self.array[x][y]
         self.array[x][y] = self.array[x2][y2]
         self.array[x2][y2] = tmp
 
-        self.array[x][y].moved = True
-        self.array[x2][y2].moved = True
+        self.array[x][y].move_cnt += 1
+        self.array[x2][y2].move_cnt += 1
 
     def movement(self, x, y, newX, newY):
         print(f"Move({x}, {y} => {newX}, {newY})")
 
-        # Add Killed List
-        if self.isEnermy(self, newX, newY):
-            self.arrKilled.append(self.array[newY][newX].getFullName())
+        # Move Count
+        self.array[y][x].move_cnt += 1
 
-        # Moved Flag On
-        self.array[y][x].moved = True
+        # Write History
+        self.history.append(x, y, self.array[y][x], newX, newY, self.array[newY][newX])
 
         # Check Game Over
         obj = self.array[newY][newX]
@@ -257,30 +333,26 @@ class Chess:
         if self.gameover != True:
             self.nextTurn(self)
 
-    def clicked(self, x, y):
-        if self.gameover == True:
+    def rollback(self):
+        mov = self.history.rollback()
+        if mov == None:
+            print(f"Nothing in history")
             return
 
-        print(f"")
-        print(f"Clicked x={x}, y={y}")
+        if mov.newObj == None:
+            print(f"Set {mov.newX}, {mov.newY} : Empty")
+            self.array[mov.newY][mov.newX] = None
+        else:
+            print(f"Set {mov.newX}, {mov.newY} : {mov.newObj.getFullName()}")
+            self.array[mov.newY][mov.newX] = mov.newObj
 
-        # Nothing selected
-        if self.cursor[0] >= 8 or self.cursor[1] >= 8:
-            self.selectObject(self, x, y)
-            return
+        print(f"Set {mov.x}, {mov.y} : {mov.obj.getFullName()}")
+        self.array[mov.y][mov.x] = mov.obj
 
-        # Cancel Cursor
-        if self.cursor[0] == x and self.cursor[1] == y:
-            self.cancelCursor(self, x, y)
-            return
+        self.addRedraw(self, mov.x, mov.y)
+        self.addRedraw(self, mov.newX, mov.newY)
 
-        # Move Cursor
-        for pt in self.availables:
-            posX, posY = self.getXY(self, pt)
-            if posX == x and posY == y:
-                self.moveTo(self, self.cursor[0], self.cursor[1], posX, posY)
-                self.cancelCursor(self, self.cursor[0], self.cursor[1])
-                break
+        self.nextTurn(self)
 
     array_org = [
         [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
@@ -304,7 +376,7 @@ class Chess:
         [ None, None, None, None, None, None, None, None ]
     ]
 
-    arrKilled = []
+    history = History()
 
     RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
     DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
@@ -373,8 +445,9 @@ class ChessView(Chess):
         pt2 = ( x * self.obj_width + self.obj_width, y * self.obj_height + self.obj_height )
         cv2.rectangle(self.image, pt1, pt2, (0, 0, 0), 1)
 
-    def drawKilledObject(self, x, y, objName):
+    def drawKilledObject(self, x, y, obj):
         print(f"Draw Killed Obj x={x}, y={y}")
+        objName = obj.getFullName()
 
         # Draw Object
         pX = int(500 * self.scale + x * self.obj_width / 2 + 1)
@@ -417,7 +490,7 @@ class ChessView(Chess):
             cv2.putText(self.image, "GAME OVER!", [ int(400 * self.scale), int(50 * self.scale) ], 1, 1, (0, 0, 255), 2)
 
         i = 0
-        for killedObj in self.arrKilled:
+        for killedObj in self.history.arrKilled:
             if killedObj == None:
                 break
             self.drawKilledObject(self.image, int(i % 4), int(1 + i / 4), killedObj)

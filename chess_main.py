@@ -95,10 +95,10 @@ def draw_info(image):
         cv2.putText(image, "GAME OVER!", [ int(400 * scale), int(50 * scale) ], 1, 1, (0, 0, 255), 2)
 
     i = 0
-    for killedObj in myChess.arrKilled:
+    for killedObj in myChess.history.arrKilled:
         if killedObj == None:
             break
-        drawKilledObject(image, int(i % 4), int(1 + i / 4), killedObj)
+        drawKilledObject(image, int(i % 4), int(1 + i / 4), killedObj.getFullName())
         i = i + 1
 
 def redraw(image):
@@ -171,3 +171,6 @@ while True:
     elif k == ord('r'):
         myChess.reset(myChess)
         updateWindowAll(image)
+    elif k == ord('b'):
+        myChess.rollback(myChess)
+        redraw(image)

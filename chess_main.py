@@ -81,7 +81,7 @@ def delete_info_background(image):
 def draw_info(image):
     delete_info_background(image)
 
-    turn = myChess.getThisTurnName(myChess)
+    turn = myChess.turn.getThisTurnName()
     if turn == "White":
         textPos = [ int(400 * scale), int(375 * scale) ]
     else:
@@ -91,7 +91,7 @@ def draw_info(image):
     cv2.putText(image, "ESC : Exit", [ int(500 * scale), 25 ], 1, 1, (255, 255, 0), 2)
     cv2.putText(image, "R : Reset", [ int(500 * scale), 50 ], 1, 1, (255, 255, 0), 2)
 
-    if myChess.gameover:
+    if myChess.turn.gameover:
         cv2.putText(image, "GAME OVER!", [ int(400 * scale), int(50 * scale) ], 1, 1, (0, 0, 255), 2)
 
     i = 0
@@ -172,5 +172,7 @@ while True:
         myChess.reset(myChess)
         updateWindowAll(image)
     elif k == ord('b'):
-        myChess.rollback(myChess)
+        if myChess.rollback(myChess):
+            # Castling rollback takes 2 actions.
+            myChess.rollback(myChess)
         redraw(image)

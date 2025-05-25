@@ -1,5 +1,6 @@
 import cv2
 
+# Chess Object Class
 class Object:
     def __init__(self, name, color):
         self.name = name
@@ -8,26 +9,59 @@ class Object:
 
     def getFullName(self):
         return f"{self.color}{self.name}"
+    
+    def getName(self):
+        return self.name
+    
+    def getColor(self):
+        return self.color
 
     name = ""
     color = ""
     move_cnt = 0
 
+# Turn Class
+class Turn:
+    def __init__(self):
+        self.turn = "White"
+        self.winner = ""
+        self.gameover = False
+
+    def getThisTurnName(self):
+        return self.turn
+    
+    def getNextTurnName(self):
+        if self.turn == "White":
+            return "Black"
+        return "White"
+    
+    def setTurnName(self, turnName):
+        self.turn = turnName
+
+    def nextTurn(self):
+        self.turn = self.getNextTurnName()
+
+    turn = ""
+    winner = ""
+    gameover = False
+
+# Movement Class
 class Movement:
-    def __init__(self, x, y, obj, newX, newY, newObj):
+    def __init__(self, x, y, obj, newX, newY, newObj, subSeq):
         self.x = x
         self.y = y
         self.obj = obj
         self.newX = newX
         self.newY = newY
         self.newObj = newObj
+        self.subSeq = subSeq
 
     def print(self):
         objName = self.obj.getFullName()
         newObjName = "Empty"
         if self.newObj != None:
             newObjName = self.newObj.getFullName()
-        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName}")
+        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName} (Sub Seq : {self.subSeq})")
 
     x = 0
     y = 0
@@ -35,14 +69,16 @@ class Movement:
     newX = 0
     newY = 0
     newObj = None
+    subSeq = 0
 
+# Movement History Class
 class History:
     def reset(self):
         self.arrHistory.clear()
         self.arrKilled.clear()
 
-    def append(self, x, y, obj, newX, newY, newObj):
-        moveInfo = Movement(x, y, obj, newX, newY, newObj)
+    def append(self, x, y, obj, newX, newY, newObj, subSeq = 0):
+        moveInfo = Movement(x, y, obj, newX, newY, newObj, subSeq)
         print(f"Move Info : {moveInfo}")
         self.arrHistory.append(moveInfo)
 
@@ -54,8 +90,8 @@ class History:
             return None
 
         last = self.arrHistory.pop()
-        if last == None:
-            return last
+        if last.newObj != None:
+            self.arrKilled.pop()
         last.print()
 
         return last
@@ -69,9 +105,6 @@ class Chess:
         self.reset(self)
 
     def reset(self, bug = False):
-        self.turn = "White"
-        self.winner = ""
-        self.gameover = False
         for x in range(8):
             for y in range(8):
                 obj_name = self.array_org[y][x]
@@ -123,26 +156,16 @@ class Chess:
         return False
     
     def isEnermy(self, x, y):
-        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.getNextTurnName(self):
+        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getNextTurnName():
             return True
         return False
     
     def isAlly(self, x, y):
-        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.getThisTurnName(self):
+        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getThisTurnName():
             return True
         return False
     
     # Basic I/O functions
-    def getThisTurnName(self):
-        return self.turn
-    
-    def getNextTurnName(self):
-        if self.turn == "White":
-            return "Black"
-        return "White"
-
-    def nextTurn(self):
-        self.turn = self.getNextTurnName(self)
 
     def getPosName(self, x, y):
         ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
@@ -233,7 +256,8 @@ class Chess:
     # Mouse Event
     def selectObject(self, x, y):
         obj = self.getObject(self, x, y)
-        if obj != None and obj.color == self.getThisTurnName(self):
+        turn = self.turn.getThisTurnName()
+        if obj != None and obj.color == turn:
             self.cursor[0] = x
             self.cursor[1] = y
             self.checkAvailable(self, x, y)
@@ -241,7 +265,7 @@ class Chess:
             for posName in self.availables:
                 self.addRedrawByPosName(self, posName)
         else:
-            print(f"Not Turn : turn={self.getThisTurnName(self)}")
+            print(f"Not Turn : turn={turn}")
 
     def cancelCursor(self, x,y):
         self.cursor[0] = 8
@@ -252,7 +276,7 @@ class Chess:
         self.availables.clear()
 
     def clicked(self, x, y):
-        if self.gameover == True:
+        if self.turn.gameover == True:
             return
 
         print(f"")
@@ -286,20 +310,20 @@ class Chess:
         self.array[x][y].move_cnt += 1
         self.array[x2][y2].move_cnt += 1
 
-    def movement(self, x, y, newX, newY):
+    def movement(self, x, y, newX, newY, subSeq = 0):
         print(f"Move({x}, {y} => {newX}, {newY})")
 
         # Move Count
         self.array[y][x].move_cnt += 1
 
         # Write History
-        self.history.append(x, y, self.array[y][x], newX, newY, self.array[newY][newX])
+        self.history.append(x, y, self.array[y][x], newX, newY, self.array[newY][newX], subSeq)
 
         # Check Game Over
         obj = self.array[newY][newX]
         if obj is not None and obj.name == "King":
-            self.gameover = True
-            self.winner = self.getThisTurnName(self)
+            self.turn.gameover = True
+            self.turn.winner = self.turn.getThisTurnName()
 
         # Make movement
         self.array[newY][newX] = self.array[y][x]
@@ -307,39 +331,46 @@ class Chess:
         self.addRedraw(self, x, y)
         self.addRedraw(self, newX, newY)
 
-        # Pawn Upgrade
-        obj = self.array[newY][newX]
-        if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
-            self.array[newY][newX].name = "Queen"
-        elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
-            obj = self.array[newY][newX].name = "Queen"
-
     def moveTo(self, x, y, newX, newY):
         # Castling
         obj = self.array[y][x]
         if obj is not None and obj.name == "King" and newX - x == 2:
             # Kingside castling
-            self.movement(self, x, y, x + 2, y)
-            self.movement(self, x + 3, y, x + 1, y)
+            self.movement(self, x, y, x + 2, y, 1)
+            self.movement(self, x + 3, y, x + 1, y, 2)
         elif obj is not None and obj.name == "King" and  x - newX == 2:
             # Queenside castling
-            self.movement(self, x, y, x - 2, y)
-            self.movement(self, x - 4, y, x - 1, y)
+            self.movement(self, x, y, x - 2, y, 1)
+            self.movement(self, x - 4, y, x - 1, y, 2)
         else:
             # Make Movement
             self.movement(self, x, y, newX, newY)
 
+            # Check Pawn Upgrade
+            obj = self.array[newY][newX]
+            if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
+                self.array[newY][newX].name = "Queen"
+                self.movement(self, newX, newY, newX, newY, 2)
+            elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
+                obj = self.array[newY][newX].name = "Queen"
+                self.movement(self, newX, newY, newX, newY, 2)
+
         # Next Turn
-        if self.gameover != True:
-            self.nextTurn(self)
+        if self.turn.gameover != True:
+            self.turn.nextTurn()
 
     def rollback(self):
         mov = self.history.rollback()
         if mov == None:
             print(f"Nothing in history")
-            return
+            return False
 
-        if mov.newObj == None:
+        # Rollback for pawn upgrade
+        if mov.x == mov.newX and mov.y == mov.newY:
+            self.array[mov.newY][mov.newX].name = "Pawn"
+            print(f"Pawn Upgrade Rollback")
+            return True
+        elif mov.newObj == None:
             print(f"Set {mov.newX}, {mov.newY} : Empty")
             self.array[mov.newY][mov.newX] = None
         else:
@@ -348,11 +379,16 @@ class Chess:
 
         print(f"Set {mov.x}, {mov.y} : {mov.obj.getFullName()}")
         self.array[mov.y][mov.x] = mov.obj
+        self.array[mov.y][mov.x].move_cnt -= 1
 
         self.addRedraw(self, mov.x, mov.y)
         self.addRedraw(self, mov.newX, mov.newY)
 
-        self.nextTurn(self)
+        self.turn.setTurnName(mov.obj.getColor())
+        self.turn.gameover = False
+
+        if mov.subSeq == 2:
+            return True
 
     array_org = [
         [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
@@ -377,6 +413,7 @@ class Chess:
     ]
 
     history = History()
+    turn = Turn()
 
     RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
     DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
@@ -384,9 +421,6 @@ class Chess:
     KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
 
     cursor = [8, 8]
-    turn = "White"
-    winner = ""
-    gameover = False
     AI = True
 
     availables = set()
@@ -476,7 +510,7 @@ class ChessView(Chess):
     def draw_info(self):
         self.delete_info_background()
 
-        turn = self.getThisTurnName()
+        turn = self.turn.getThisTurnName()
         if self.turn == "White":
             textPos = [ int(400 * self.scale), int(375 * self.scale) ]
         else:

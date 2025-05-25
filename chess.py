@@ -35,6 +35,13 @@ class Turn:
             return "Black"
         return "White"
     
+    def checkThisTurnObj(self, obj):
+        if obj == None:
+            return False
+        elif obj.color == self.turn:
+            return True
+        return False
+    
     def setTurnName(self, turnName):
         self.turn = turnName
 
@@ -82,7 +89,7 @@ class History:
         print(f"Move Info : {moveInfo}")
         self.arrHistory.append(moveInfo)
 
-        if newObj != None:
+        if x != newX and y != newY and newObj != None:
             self.arrKilled.append(newObj)
 
     def rollback(self):
@@ -90,7 +97,7 @@ class History:
             return None
 
         last = self.arrHistory.pop()
-        if last.newObj != None:
+        if last.x != last.newX and last.y != last.newY and last.newObj != None:
             self.arrKilled.pop()
         last.print()
 
@@ -267,10 +274,11 @@ class Chess:
         else:
             print(f"Not Turn : turn={turn}")
 
-    def cancelCursor(self, x,y):
-        self.cursor[0] = 8
-        self.cursor[1] = 8
-        self.addRedraw(self, x, y)
+    def cancelCursor(self):
+        if self.cursor[0] < 8 and self.cursor[1] < 8:
+            self.addRedraw(self, self.cursor[0], self.cursor[1])
+            self.cursor[0] = 8
+            self.cursor[1] = 8
         for posName in self.availables:
             self.addRedrawByPosName(self, posName)
         self.availables.clear()
@@ -282,14 +290,14 @@ class Chess:
         print(f"")
         print(f"Clicked x={x}, y={y}")
 
-        # Nothing selected
-        if self.cursor[0] >= 8 or self.cursor[1] >= 8:
+        # Check This Turn Object
+        if x < 8 and y < 8 and self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
+            # Cancel previsou cursor
+            if self.cursor[0] == x and self.cursor[1] == y:
+                self.cancelCursor(self)
+                return
+            self.cancelCursor(self)
             self.selectObject(self, x, y)
-            return
-
-        # Cancel Cursor
-        if self.cursor[0] == x and self.cursor[1] == y:
-            self.cancelCursor(self, x, y)
             return
 
         # Move Cursor
@@ -297,8 +305,13 @@ class Chess:
             posX, posY = self.getXY(self, pt)
             if posX == x and posY == y:
                 self.moveTo(self, self.cursor[0], self.cursor[1], posX, posY)
-                self.cancelCursor(self, self.cursor[0], self.cursor[1])
+                self.cancelCursor(self)
                 break
+
+        # Cancel Cursor
+        if self.cursor[0] == x and self.cursor[1] == y:
+            self.cancelCursor(self)
+            return
 
     # Actual Movement Functions
     def swap(self, x, y, x2, y2):
@@ -331,6 +344,16 @@ class Chess:
         self.addRedraw(self, x, y)
         self.addRedraw(self, newX, newY)
 
+    def pawnUpgrade(self, x, y):
+        print(f"Pawn Upgrade({x}, {y}")
+
+        # Write History
+        self.history.append(x, y, self.array[y][x], x, y, self.array[x][y], 2)
+
+        # Change pawn to queen
+        self.array[y][x].name = "Queen"
+        self.addRedraw(self, x, y)
+
     def moveTo(self, x, y, newX, newY):
         # Castling
         obj = self.array[y][x]
@@ -349,11 +372,9 @@ class Chess:
             # Check Pawn Upgrade
             obj = self.array[newY][newX]
             if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
-                self.array[newY][newX].name = "Queen"
-                self.movement(self, newX, newY, newX, newY, 2)
+                self.pawnUpgrade(self, newX, newY)
             elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
-                obj = self.array[newY][newX].name = "Queen"
-                self.movement(self, newX, newY, newX, newY, 2)
+                self.pawnUpgrade(self, newX, newY)
 
         # Next Turn
         if self.turn.gameover != True:

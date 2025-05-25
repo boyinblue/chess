@@ -172,6 +172,7 @@ while True:
         myChess.reset(myChess)
         updateWindowAll(image)
     elif k == ord('b'):
+        myChess.cancelCursor(myChess)
         if myChess.rollback(myChess):
             # Castling rollback takes 2 actions.
             myChess.rollback(myChess)

@@ -173,7 +173,6 @@ class Chess:
         return False
     
     # Basic I/O functions
-
     def getPosName(self, x, y):
         ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
         posName = f"{y}{ColName[x]}"
@@ -215,22 +214,22 @@ class Chess:
         if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].move_cnt == 0:
             self.addAvailable(self, x - 2, y)
 
-    def checkAvailable_Pawn(self):
+    def checkAvailable_Pawn(self, x, y):
         y_offset = 1
         y_org_pos = 1
-        obj = self.getObject(self, self.cursor[0], self.cursor[1])
+        obj = self.getObject(self, x, y)
         if( obj.color == "White" ):
             y_offset = -1
             y_org_pos = 6
 
-        if self.isEmpty(self, self.cursor[0], self.cursor[1] + y_offset):
-            self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset)
-            if self.cursor[1] == y_org_pos and self.isEmpty(self, self.cursor[0], self.cursor[1] + y_offset * 2):
-                self.addAvailable(self, self.cursor[0], self.cursor[1] + y_offset * 2)
-        if self.isEnermy(self, self.cursor[0] + 1, self.cursor[1] + y_offset):
-            self.addAvailable(self, self.cursor[0] + 1, self.cursor[1] + y_offset)
-        if self.isEnermy(self, self.cursor[0] - 1, self.cursor[1] + y_offset):
-            self.addAvailable(self, self.cursor[0] - 1, self.cursor[1] + y_offset)
+        if self.isEmpty(self, x, y + y_offset):
+            self.addAvailable(self, x, y + y_offset)
+            if y == y_org_pos and self.isEmpty(self, x, y + y_offset * 2):
+                self.addAvailable(self, x, y + y_offset * 2)
+        if self.isEnermy(self, x + 1, y + y_offset):
+            self.addAvailable(self, x + 1, y + y_offset)
+        if self.isEnermy(self, x - 1, y + y_offset):
+            self.addAvailable(self, x - 1, y + y_offset)
 
     def checkAvailable(self, x, y):
         objName = self.getObjectName(self, x, y)
@@ -238,18 +237,18 @@ class Chess:
         print(f"Check available x={x}, y={y}, objName={objName}")
 
         if objName == "King":
-            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 1)
-            self.checkCastling(self, self.cursor[0], self.cursor[1])
+            self.checkAvailableByDirList(self, x, y, self.EveryDirs, 1)
+            self.checkCastling(self, x, y)
         elif objName == "Queen":
-            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.EveryDirs, 7)
+            self.checkAvailableByDirList(self, x, y, self.EveryDirs, 7)
         elif objName == "Bishop":
-            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.DiagonalDirs, 7)
+            self.checkAvailableByDirList(self, x, y, self.DiagonalDirs, 7)
         elif objName == "Rook":
-            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.RightAngleDirs, 7)
+            self.checkAvailableByDirList(self, x, y, self.RightAngleDirs, 7)
         elif objName == "Knight":
-            self.checkAvailableByDirList(self, self.cursor[0], self.cursor[1], self.KnightDirs, 1)
+            self.checkAvailableByDirList(self, x, y, self.KnightDirs, 1)
         elif objName == "Pawn":
-            self.checkAvailable_Pawn(self)
+            self.checkAvailable_Pawn(self, x, y)
 
     # Redraw Data Functions
     def addRedraw(self, x, y):
@@ -446,6 +445,38 @@ class Chess:
 
     availables = set()
     need_to_redraw = set()
+
+class ChessAI(Chess):
+    def copyBoard(self, arr):
+        import copy
+        self.arrArray = copy.deepcopy(arr)
+
+    def setTurn(self, turn):
+        self.turn = turn
+
+    def getSelectable(self):
+        selectable = []
+        for x in 8:
+            for y in 8:
+                posName = Chess.getPosName(Chess, x, y)
+                obj = self.arrArray[y][x]
+                if obj == None:
+                    continue
+                elif obj.color == self.turn:
+                    selectable.append(posName)
+
+        return selectable
+    
+    def getMoveable(self, selectable):
+        for select in selectable:
+            x, y = Chess.getXY(Chess, select)
+            moveable = Chess.checkAvailable()
+
+    def getBestMove(self):
+        selectable = self.getSelectable(self)
+    
+    arrArray = []
+    turn = "White"
 
 class ChessView(Chess):
     def __init__(self):

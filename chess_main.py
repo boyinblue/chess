@@ -50,7 +50,7 @@ def draw_object(image, x, y):
     # Draw Rectangle
     if x == myChess.cursor[0] and y == myChess.cursor[1]:
         pt1 = ( x * obj_width + 3, y * obj_height + 3 )
-        pt2 = ( x * obj_width + obj_width - 3, y * obj_height + obj_height - 3 )
+        pt2 = ( x * obj_width + obj_width - 2, y * obj_height + obj_height - 2 )
         cv2.rectangle(image, pt1, pt2, (0, 0, 255), 3)
     else:
         pt1 = ( x * obj_width + 1, y * obj_height + 1 )

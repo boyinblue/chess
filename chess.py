@@ -190,8 +190,9 @@ class ChessAI(ChessUser):
         import random
         randMov = random.choice(self.chess.moveables)
         
-        self.chess.clicked(self.chess, randMov.x, randMov.y)
-        self.chess.clicked(self.chess, randMov.newX, randMov.newY)
+        self.chess.moveTo(self.chess, randMov.x, randMov.y, randMov.newX, randMov.newY)
+        #self.chess.clicked(self.chess, randMov.x, randMov.y)
+        #self.chess.clicked(self.chess, randMov.newX, randMov.newY)
 
 # Check Class
 class Chess:

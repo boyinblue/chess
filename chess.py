@@ -125,8 +125,8 @@ class Chess:
         self.availables.clear()
         self.need_to_redraw.clear()
 
-        self.cursor[0] = 8
-        self.cursor[1] = 8
+        self.selected[0] = 8
+        self.selected[1] = 8
 
     # Basic I/O functions
     def getObject(self, x, y):
@@ -264,8 +264,8 @@ class Chess:
         obj = self.getObject(self, x, y)
         turn = self.turn.getThisTurnName()
         if obj != None and obj.color == turn:
-            self.cursor[0] = x
-            self.cursor[1] = y
+            self.selected[0] = x
+            self.selected[1] = y
             self.checkAvailable(self, x, y)
             self.addRedraw(self, x, y)
             for posName in self.availables:
@@ -273,11 +273,11 @@ class Chess:
         else:
             print(f"Not Turn : turn={turn}")
 
-    def cancelCursor(self):
-        if self.cursor[0] < 8 and self.cursor[1] < 8:
-            self.addRedraw(self, self.cursor[0], self.cursor[1])
-            self.cursor[0] = 8
-            self.cursor[1] = 8
+    def cancelselected(self):
+        if self.selected[0] < 8 and self.selected[1] < 8:
+            self.addRedraw(self, self.selected[0], self.selected[1])
+            self.selected[0] = 8
+            self.selected[1] = 8
         for posName in self.availables:
             self.addRedrawByPosName(self, posName)
         self.availables.clear()
@@ -291,25 +291,25 @@ class Chess:
 
         # Check This Turn Object
         if x < 8 and y < 8 and self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
-            # Cancel previsou cursor
-            if self.cursor[0] == x and self.cursor[1] == y:
-                self.cancelCursor(self)
+            # Cancel previsou selected
+            if self.selected[0] == x and self.selected[1] == y:
+                self.cancelselected(self)
                 return
-            self.cancelCursor(self)
+            self.cancelselected(self)
             self.selectObject(self, x, y)
             return
 
-        # Move Cursor
+        # Move selected
         for pt in self.availables:
             posX, posY = self.getXY(self, pt)
             if posX == x and posY == y:
-                self.moveTo(self, self.cursor[0], self.cursor[1], posX, posY)
-                self.cancelCursor(self)
+                self.moveTo(self, self.selected[0], self.selected[1], posX, posY)
+                self.cancelselected(self)
                 break
 
-        # Cancel Cursor
-        if self.cursor[0] == x and self.cursor[1] == y:
-            self.cancelCursor(self)
+        # Cancel selected
+        if self.selected[0] == x and self.selected[1] == y:
+            self.cancelselected(self)
             return
 
     # Actual Movement Functions
@@ -440,20 +440,22 @@ class Chess:
     EveryDirs = RightAngleDirs + DiagonalDirs
     KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
 
-    cursor = [8, 8]
+    selected = [8, 8]
+    cursor = [0, 0]
     AI = True
 
     availables = set()
     need_to_redraw = set()
 
-class ChessAI(Chess):
-    def copyBoard(self, arr):
-        import copy
-        self.arrArray = copy.deepcopy(arr)
+class ChessUser:
+    def __init__(self, color, board):
+        self.color = color
+        self.board = board
 
-    def setTurn(self, turn):
-        self.turn = turn
+#class ChessHuman(ChessUser):
 
+
+class ChessAI(ChessUser):
     def getSelectable(self):
         selectable = []
         for x in 8:
@@ -475,8 +477,8 @@ class ChessAI(Chess):
     def getBestMove(self):
         selectable = self.getSelectable(self)
     
-    arrArray = []
-    turn = "White"
+    board = None
+    color = ""
 
 class ChessView(Chess):
     def __init__(self):
@@ -540,13 +542,13 @@ class ChessView(Chess):
         pY = int(50 * self.scale + y * self.obj_height / 2 + 1)
         self.image[pY:int(pY + self.obj_height / 2), pX:int(pX + self.obj_width / 2)] = self.objImages_small[objName]
 
-    def draw_cursor(self):
-        # Draw Cursor
-        cursor = self.cursor
-        if cursor[0] >= 8 or cursor[1] >= 8:
+    def draw_selected(self):
+        # Draw selected
+        selected = self.selected
+        if selected[0] >= 8 or selected[1] >= 8:
             return
-        print(f"Draw Cursor")
-        cv2.circle(self.image, (int(cursor[0] * self.obj_width + self.obj_width / 2), int(cursor[1] * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
+        print(f"Draw selected")
+        cv2.circle(self.image, (int(selected[0] * self.obj_width + self.obj_width / 2), int(selected[1] * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
 
     def draw_availables(self):
         for pos in self.availables:
@@ -591,7 +593,7 @@ class ChessView(Chess):
             x, y = self.getXY(self, posName)
             self.draw_object(self, x, y)
 
-        self.draw_cursor(self)
+        self.draw_selected(self)
         self.draw_availables(self)
         self.draw_info(self)
 
@@ -603,7 +605,7 @@ class ChessView(Chess):
             for x in range(8):
                 self.draw_object(x, y)
 
-        self.draw_cursor()
+        self.draw_selected()
         self.draw_availables()
         self.draw_info()
 

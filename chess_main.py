@@ -12,6 +12,8 @@ scale = 1.5
 
 myChess = chess.Chess
 myChess.reset(myChess)
+user1 = chess.ChessAI("White", myChess)
+#user2 = chess.ChessHuman("Black", myChess)
 
 ##################################################
 # Drawing Functions
@@ -46,9 +48,14 @@ def draw_object(image, x, y):
     #bit = objImages[objName][:,:,0:2]
 
     # Draw Rectangle
-    pt1 = ( x * obj_width + 1, y * obj_height + 1 )
-    pt2 = ( x * obj_width + obj_width, y * obj_height + obj_height )
-    cv2.rectangle(image, pt1, pt2, (0, 0, 0), 1)
+    if x == myChess.cursor[0] and y == myChess.cursor[1]:
+        pt1 = ( x * obj_width + 3, y * obj_height + 3 )
+        pt2 = ( x * obj_width + obj_width - 3, y * obj_height + obj_height - 3 )
+        cv2.rectangle(image, pt1, pt2, (0, 0, 255), 3)
+    else:
+        pt1 = ( x * obj_width + 1, y * obj_height + 1 )
+        pt2 = ( x * obj_width + obj_width, y * obj_height + obj_height )
+        cv2.rectangle(image, pt1, pt2, (0, 0, 0), 1)
 
 def drawKilledObject(image, x, y, objName):
     global obj_width, obj_height
@@ -59,13 +66,13 @@ def drawKilledObject(image, x, y, objName):
     pY = int(50 * scale + y * obj_height / 2 + 1)
     image[pY:int(pY + obj_height / 2), pX:int(pX + obj_width / 2)] = objImages_small[objName]
 
-def draw_cursor(image):
-    # Draw Cursor
-    cursor = myChess.cursor
-    if cursor[0] >= 8 or cursor[1] >= 8:
+def draw_selected(image):
+    # Draw selected
+    selected = myChess.selected
+    if selected[0] >= 8 or selected[1] >= 8:
         return
-    print(f"Draw Cursor")
-    cv2.circle(image, (int(cursor[0] * obj_width + obj_width / 2), int(cursor[1] * obj_height + obj_height / 2)), int(obj_width / 3), (255,255,0), 2)
+    print(f"Draw selected")
+    cv2.circle(image, (int(selected[0] * obj_width + obj_width / 2), int(selected[1] * obj_height + obj_height / 2)), int(obj_width / 3), (255,255,0), 2)
 
 def draw_availables(image):
     for pos in myChess.availables:
@@ -110,7 +117,7 @@ def redraw(image):
         x, y = myChess.getXY(myChess, posName)
         draw_object(image, x, y)
 
-    draw_cursor(image)
+    draw_selected(image)
     draw_availables(image)
     draw_info(image)
 
@@ -122,7 +129,7 @@ def updateWindowAll(image):
         for x in range(8):
             draw_object(image, x, y)
 
-    draw_cursor(image)
+    draw_selected(image)
     draw_availables(image)
     draw_info(image)
 
@@ -172,8 +179,31 @@ while True:
         myChess.reset(myChess)
         updateWindowAll(image)
     elif k == ord('b'):
-        myChess.cancelCursor(myChess)
+        myChess.cancelselected(myChess)
         if myChess.rollback(myChess):
             # Castling rollback takes 2 actions.
             myChess.rollback(myChess)
+        redraw(image)
+    elif k == ord('e'):
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        myChess.cursor[0] = (myChess.cursor[0] + 7) % 8
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        redraw(image)
+    elif k == ord('f'):
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        myChess.cursor[0] = (myChess.cursor[0] + 1) % 8
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        redraw(image)
+    elif k == ord('c'):
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        myChess.cursor[1] = (myChess.cursor[1] + 7) % 8
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        redraw(image)
+    elif k == ord('d'):
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        myChess.cursor[1] = (myChess.cursor[1] + 1) % 8
+        myChess.addRedraw(myChess, myChess.cursor[0], myChess.cursor[1])
+        redraw(image)
+    elif k == ord('g'):
+        myChess.clicked(myChess, myChess.cursor[0], myChess.cursor[1])
         redraw(image)

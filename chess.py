@@ -27,6 +27,9 @@ class Turn:
         self.winner = ""
         self.gameover = False
 
+    def reset(self):
+        self.__init__()
+
     def getThisTurnName(self):
         return self.turn
     
@@ -120,6 +123,8 @@ class Chess:
                     self.array[y][x] = Object(obj_name[5:], obj_name[0:5])
                 elif bug == False:
                     self.array[y][x] = None
+        
+        self.turn.reset()
         self.history.reset()
 
         self.availables.clear()

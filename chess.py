@@ -6,6 +6,7 @@ class Object:
         self.name = name
         self.color = color
         self.move_cnt = 0
+        self.score = self.getScore()
 
     def getFullName(self):
         return f"{self.color}{self.name}"
@@ -15,10 +16,25 @@ class Object:
     
     def getColor(self):
         return self.color
-
+    
+    def getScore(self):
+        if self.name == "King":
+            return 10
+        elif self.name == "Queen":
+            return 9
+        elif self.name == "Rook":
+            return 5
+        elif self.name == "Knight" or self.name == "Bishop":
+            return 3
+        elif self.name == "Pawn":
+            return 1
+        else:
+            assert()
+            
     name = ""
     color = ""
     move_cnt = 0
+    score = 0
 
 # Turn Class
 class Turn:
@@ -100,13 +116,16 @@ class Movement:
         self.newY = newY
         self.newObj = newObj
         self.subSeq = subSeq
+        if self.newObj == None:
+            return
+        self.score = self.newObj.getScore()
 
     def print(self):
         objName = self.obj.getFullName()
         newObjName = "Empty"
         if self.newObj != None:
             newObjName = self.newObj.getFullName()
-        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName} (Sub Seq : {self.subSeq})")
+        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName} (Sub Seq : {self.subSeq}) (score : {self.score})")
 
     x = 0
     y = 0
@@ -115,6 +134,7 @@ class Movement:
     newY = 0
     newObj = None
     subSeq = 0
+    score = 0
 
 # Movement History Class
 class History:
@@ -179,8 +199,8 @@ class ChessAI(ChessUser):
     def getBestMove(self):
         selectable = self.getSelectable(self)
 
-    def doBestMove(self):
-        print(f"Do Best Move")
+    def doRandomMove(self):
+        print(f"Random Move")
         self.chess.moveables.clear()
         selectable = self.getSelectable()
         moveables = self.getMoveable(selectable)
@@ -189,10 +209,25 @@ class ChessAI(ChessUser):
 
         import random
         randMov = random.choice(self.chess.moveables)
-        
         self.chess.moveTo(self.chess, randMov.x, randMov.y, randMov.newX, randMov.newY)
-        #self.chess.clicked(self.chess, randMov.x, randMov.y)
-        #self.chess.clicked(self.chess, randMov.newX, randMov.newY)
+
+    def doBestMove(self):
+        print(f"Do Best Move")
+        max_score = 0
+        max_move = None
+
+        self.chess.moveables.clear()
+        selectable = self.getSelectable()
+        moveables = self.getMoveable(selectable)
+        for mov in self.chess.moveables:
+            if mov.score > max_score:
+                max_move = mov
+            mov.print()
+
+        if max_move == None:
+            self.doRandomMove()
+        else:
+            self.chess.moveTo(self.chess, max_move.x, max_move.y, max_move.newX, max_move.newY)
 
 # Check Class
 class Chess:

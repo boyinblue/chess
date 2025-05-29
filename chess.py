@@ -50,8 +50,21 @@ class Turn:
 
     def nextTurn(self):
         self.turn = self.getNextTurnName()
+        if self.turn == "White" and self.white != None:
+            self.white.doBestMove()
+
+        elif self.turn == "Black" and self.black != None:
+            self.black.doBestMove()
+
+    def setAI(self, color, user):
+        if color == "White":
+            self.white = user
+        elif color == "Black":
+            self.black = user
 
     turn = ""
+    white = None
+    black = None
     winner = ""
     gameover = False
 
@@ -79,7 +92,7 @@ class Available:
 
 # Movement Class
 class Movement:
-    def __init__(self, x, y, obj, newX, newY, newObj, subSeq):
+    def __init__(self, x, y, obj, newX, newY, newObj, subSeq = 0):
         self.x = x
         self.y = y
         self.obj = obj
@@ -130,6 +143,55 @@ class History:
 
     arrHistory = []
     arrKilled = []
+
+class ChessUser:
+    def __init__(self, color, chess):
+        self.color = color
+        self.chess = chess
+
+    color = ""
+    chess = None
+
+#class ChessHuman(ChessUser):
+
+
+class ChessAI(ChessUser):
+    def getSelectable(self):
+        selectable = []
+        for x in range(8):
+            for y in range(8):
+                posName = Chess.getPosName(Chess, x, y)
+                obj = self.chess.array[y][x]
+                if obj == None:
+                    continue
+                elif obj.color == self.chess.turn.getThisTurnName():
+                    selectable.append(posName)
+
+        return selectable
+    
+    def getMoveable(self, selectable):
+        print(f"selectables {selectable}")
+        for select in selectable:
+            print(f"Sel {select}")
+            x, y = Chess.getXY(self.chess, select)
+            moveable = Chess.checkAvailable(self.chess, x, y)
+
+    def getBestMove(self):
+        selectable = self.getSelectable(self)
+
+    def doBestMove(self):
+        print(f"Do Best Move")
+        self.chess.moveables.clear()
+        selectable = self.getSelectable()
+        moveables = self.getMoveable(selectable)
+        for mov in self.chess.moveables:
+            mov.print()
+
+        import random
+        randMov = random.choice(self.chess.moveables)
+        
+        self.chess.clicked(self.chess, randMov.x, randMov.y)
+        self.chess.clicked(self.chess, randMov.newX, randMov.newY)
 
 # Check Class
 class Chess:
@@ -210,35 +272,37 @@ class Chess:
         return x, y
     
     # Check Movement functions
-    def addAvailable(self, x, y):
-        posName = self.getPosName(self, x, y)
+    def addAvailable(self, x, y, newX, newY):
+        posName = self.getPosName(self, newX, newY)
         print(f"Add Available {posName}")
         self.availables.add(posName)
+        mov = Movement(x, y, self.array[y][x], newX, newY, self.array[newY][newX])
+        self.moveables.append(mov)
 
-    def checkUnitAvailable(self, x, y):
-        if not self.isValidPos(self, x, y):
+    def checkUnitAvailable(self, x, y, newX, newY):
+        if not self.isValidPos(self, newX, newY):
             return False
-        elif self.isAlly(self, x, y):
+        elif self.isAlly(self, newX, newY):
             return False
         
-        self.addAvailable(self, x, y)
-        if self.isEnermy(self, x, y):
+        self.addAvailable(self, x, y, newX, newY)
+        if self.isEnermy(self, newX, newY):
             return False
         return True #Continue Checking
         
     def checkAvailableByDirList(self, x, y, dirs, count):
         for dir in dirs:
             for i in range(0, count):
-                if False == self.checkUnitAvailable(self, x + dir[0] * (i+1), y + dir[1] * (i+1)):
+                if False == self.checkUnitAvailable(self, x, y, x + dir[0] * (i+1), y + dir[1] * (i+1)):
                     break
 
     def checkCastling(self, x, y):
         if self.array[y][x].move_cnt != 0:
             return False
         if self.array[y][x+1] == None and self.array[y][x+2] == None and self.array[y][x+3] != None and self.array[y][x+3].move_cnt == 0:
-            self.addAvailable(self, x + 2, y)
+            self.addAvailable(self, x, y, x + 2, y)
         if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].move_cnt == 0:
-            self.addAvailable(self, x - 2, y)
+            self.addAvailable(self, x, y, x - 2, y)
 
     def checkAvailable_Pawn(self, x, y):
         y_offset = 1
@@ -249,13 +313,13 @@ class Chess:
             y_org_pos = 6
 
         if self.isEmpty(self, x, y + y_offset):
-            self.addAvailable(self, x, y + y_offset)
+            self.addAvailable(self, x, y, x, y + y_offset)
             if y == y_org_pos and self.isEmpty(self, x, y + y_offset * 2):
-                self.addAvailable(self, x, y + y_offset * 2)
+                self.addAvailable(self, x, y, x, y + y_offset * 2)
         if self.isEnermy(self, x + 1, y + y_offset):
-            self.addAvailable(self, x + 1, y + y_offset)
+            self.addAvailable(self, x, y, x + 1, y + y_offset)
         if self.isEnermy(self, x - 1, y + y_offset):
-            self.addAvailable(self, x - 1, y + y_offset)
+            self.addAvailable(self, x, y,  x - 1, y + y_offset)
 
     def checkAvailable(self, x, y):
         objName = self.getObjectName(self, x, y)
@@ -449,40 +513,7 @@ class Chess:
     KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
 
     selected = [8, 8]
-    cursor = [0, 0]
-    AI = True
+    cursor = [4, 7]
 
     availables = Available()
-
-class ChessUser:
-    def __init__(self, color, board):
-        self.color = color
-        self.board = board
-
-#class ChessHuman(ChessUser):
-
-
-class ChessAI(ChessUser):
-    def getSelectable(self):
-        selectable = []
-        for x in 8:
-            for y in 8:
-                posName = Chess.getPosName(Chess, x, y)
-                obj = self.arrArray[y][x]
-                if obj == None:
-                    continue
-                elif obj.color == self.turn:
-                    selectable.append(posName)
-
-        return selectable
-    
-    def getMoveable(self, selectable):
-        for select in selectable:
-            x, y = Chess.getXY(Chess, select)
-            moveable = Chess.checkAvailable()
-
-    def getBestMove(self):
-        selectable = self.getSelectable(self)
-    
-    board = None
-    color = ""
+    moveables = []

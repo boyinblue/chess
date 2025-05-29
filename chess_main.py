@@ -12,7 +12,8 @@ scale = 1.5
 
 myChess = chess.Chess
 myChess.reset(myChess)
-user1 = chess.ChessAI("White", myChess)
+user1 = chess.ChessAI("Black", myChess)
+myChess.turn.setAI("Black", user1)
 #user2 = chess.ChessHuman("Black", myChess)
 
 ##################################################
@@ -139,13 +140,9 @@ def mouse_event(event, x, y, flags, param):
         draw()
 
 ##################################################
-# Initialization
-##################################################
-draw()
-
-##################################################
 # Main Task
 ##################################################
+draw()
 while True:
     try:
         cv2.getWindowProperty("Chess", 0)

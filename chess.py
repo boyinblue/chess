@@ -252,7 +252,7 @@ class ChessAI(ChessUser):
         import copy
         chessForAI = copy.deepcopy(self.chess)
         chessForAI.turn.calculating = True
-        max_move = self.doBestMove_Recursive(chessForAI, 2)
+        max_move = self.doBestMove_Recursive(chessForAI, 1)
         chessForAI.turn.calculating = False
 
         if max_move == None:

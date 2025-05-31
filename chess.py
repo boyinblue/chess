@@ -509,9 +509,9 @@ class Chess:
             # Cancel previsou selected
             if self.selector.isPos(x, y):
                 self.cancelselected(self)
-                return
-            self.cancelselected(self)
-            self.selectObject(self, x, y)
+            else:
+                self.cancelselected(self)
+                self.selectObject(self, x, y)
             return
 
         # Move selected

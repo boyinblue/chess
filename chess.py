@@ -132,7 +132,6 @@ class Turn:
         elif color == "Black":
             self.black = user
 
-    calculating = False
     turn = ""
     winner = ""
     gameover = False
@@ -197,7 +196,7 @@ class History:
 
     def append(self, x, y, obj, newX, newY, newObj, subSeq = 0):
         moveInfo = Movement(x, y, obj, newX, newY, newObj, subSeq)
-        print(f"Move Info : {moveInfo}")
+        print(f"Move Info : {moveInfo.print()}")
         self.arrHistory.append(moveInfo)
 
         if x != newX and y != newY and newObj != None:
@@ -536,13 +535,13 @@ class ChessAI(ChessUser):
         for select in selectable:
             #print(f"Sel {select}")
             x, y = Chess.getXY(self.chess, select)
-            self.board.checkAvailable(x, y)
+            Board.checkAvailable(self.chess, x, y)
 
         return self.board.moveables
 
     def getRandomMove(self):
         print(f"Random Move")
-        self.moveables.clear()
+        self.board.moveables.clear()
         selectable = ChessAI.getSelectable(self)
         moveables = ChessAI.getMoveable(self, selectable)
         for mov in self.board.moveables:
@@ -553,15 +552,15 @@ class ChessAI(ChessUser):
 
         return randMov
 
-    def getBestMove_Recursive(self, chessForAI, cnt):
+    def getBestMove_Recursive(self, cnt):
         print(f"Do Best Move : Level-{cnt}")
         if cnt == 0:
             return None
         max_score = 0
         max_move = None
 
-        moveables_old = chessForAI.moveables
-        chessForAI.moveables.clear()
+        moveables_old = self.board.moveables
+        self.board.moveables.clear()
 
         selectable = ChessAI.getSelectable(self)
         moveables = ChessAI.getMoveable(self, selectable)
@@ -573,21 +572,19 @@ class ChessAI(ChessUser):
                 max_move = mov
             Board.moveTo(self.chess, mov.x, mov.y, mov.newX, mov.newY)
             self.chess.history.print()
-            mov = ChessAI.getBestMove_Recursive(self, chessForAI, cnt - 1)
-            Board.rollback(chessForAI)
+            mov = ChessAI.getBestMove_Recursive(self, cnt - 1)
+            Board.rollback(self.board)
             self.chess.history.print()
 
-        chessForAI.moveables = moveables_old
+        self.board.moveables = moveables_old
 
         return max_move
 
     def getBestMove(self):
         print(f"Do Best Move")
         import copy
-        chessForAI = copy.deepcopy(self.chess)
-        chessForAI.turn.calculating = True
-        max_move = self.getBestMove_Recursive(chessForAI, 1)
-        chessForAI.turn.calculating = False
+        self.board = copy.deepcopy(self.chess)
+        max_move = ChessAI.getBestMove_Recursive(self, 1)
 
         if max_move == None:
             max_move = ChessAI.getRandomMove(self)

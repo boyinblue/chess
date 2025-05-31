@@ -28,8 +28,6 @@ myView.draw()
 ##################################################
 # Main Task
 ##################################################
-import time
-
 while True:
     msg = myView.getEvent()
     if msg != None:
@@ -37,3 +35,5 @@ while True:
         if msg[0] == "Clicked":
             myChess.clicked(myChess, msg[1], msg[2])
             myView.draw()
+        elif msg[0] == "Exit":
+            break

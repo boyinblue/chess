@@ -35,7 +35,7 @@ class ChessView:
 
         # Draw Border
         posName = self.chess.getPosName(self.chess, x, y)
-        if x != self.chess.cursor[0] or y != self.chess.cursor[1]:
+        if x != self.chess.cursor.x or y != self.chess.cursor.y:
             self.draw_border(x, y, (0, 0, 0), 1)
         elif self.chess.availables.isAvaiable(posName):
             self.draw_border(x, y, (255, 0, 0), 3)
@@ -54,11 +54,11 @@ class ChessView:
 
     def draw_selected(self):
         # Draw selected
-        selected = self.chess.selected
-        if selected[0] >= 8 or selected[1] >= 8:
+        x, y = self.chess.selector.get()
+        if x >= 8 or y >= 8:
             return
         print(f"Draw selected")
-        cv2.circle(self.image, (int(selected[0] * self.obj_width + self.obj_width / 2), int(selected[1] * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
+        cv2.circle(self.image, (int(x * self.obj_width + self.obj_width / 2), int(y * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
 
     def draw_availables(self):
         for pos in self.chess.availables.get():
@@ -134,13 +134,15 @@ class ChessView:
             msg = self.msg.pop()
             return msg
         
-        k = cv2.waitKeyEx(100)   
+        k = cv2.waitKeyEx(100)
         if k == -1:
             return None
 
         print(f"{k} key pressed")
         if k == 27:
             cv2.destroyAllWindows()
+            msg = [ "Exit" ]
+            return msg
         elif k == ord('R'):
             self.chess.reset(self.chess, True)
             self.draw()
@@ -155,7 +157,8 @@ class ChessView:
             self.draw()
         # Arrow Keys (8BitDo Gamepad)
         elif k == ord('e') or k == 0x250000:
-            self.chess.cursor[0] = (self.chess.cursor[0] + 7) % 8
+            return [ "Left" ]
+            
             self.draw()
         elif k == ord('f') or k == 0x270000:
             self.chess.cursor[0] = (self.chess.cursor[0] + 1) % 8

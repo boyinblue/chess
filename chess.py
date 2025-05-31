@@ -36,6 +36,65 @@ class Object:
     move_cnt = 0
     score = 0
 
+    RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
+    DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
+    EveryDirs = RightAngleDirs + DiagonalDirs
+    KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
+
+class Position:
+    def set(self, x, y):
+        self.x = x
+        self.y = y
+
+    def get(self):
+        return self.x, self.y
+    
+    def isPos(self, x, y):
+        if self.x == x and self.y == y:
+            return True
+        return False
+
+class Cursor(Position):
+    def reset(self):
+        self.x = 0
+        self.y = 0
+
+    def left(self):
+        self.x = (self.x + 7) % 8
+
+    def right(self):
+        self.x = (self.x + 1) % 8
+    
+    def up(self):
+        self.y = (self.y + 7) % 8
+
+    def down(self):
+        self.y = (self.y + 1) % 8
+
+    x = 4
+    y = 7
+
+class Selector(Position):
+    def reset(self):
+        self.x = 8
+        self.y = 8
+
+    def cancel(self):
+        #print("Cancel selector")
+        self.reset()
+        #self.print()
+
+    def isValid(self):
+        if self.x < 8 and self.y < 8:
+            return True
+        return False
+    
+    def print(self):
+        print(f"Selector : {self.x}, {self.y}")
+
+    x = 8
+    y = 8
+
 # Turn Class
 class Turn:
     def __init__(self):
@@ -281,8 +340,7 @@ class Chess:
 
         self.availables.clear()
 
-        self.selected[0] = 8
-        self.selected[1] = 8
+        self.cursor.reset()
 
     # Dump
     def print(self):
@@ -402,21 +460,22 @@ class Chess:
             self.addAvailable(self, x, y,  x - 1, y + y_offset)
 
     def checkAvailable(self, x, y):
+        obj = self.array[y][x]
         objName = self.getObjectName(self, x, y)
 
         #print(f"Check available x={x}, y={y}, objName={objName}")
 
         if objName == "King":
-            self.checkAvailableByDirList(self, x, y, self.EveryDirs, 1)
+            self.checkAvailableByDirList(self, x, y, obj.EveryDirs, 1)
             self.checkCastling(self, x, y)
         elif objName == "Queen":
-            self.checkAvailableByDirList(self, x, y, self.EveryDirs, 7)
+            self.checkAvailableByDirList(self, x, y, obj.EveryDirs, 7)
         elif objName == "Bishop":
-            self.checkAvailableByDirList(self, x, y, self.DiagonalDirs, 7)
+            self.checkAvailableByDirList(self, x, y, obj.DiagonalDirs, 7)
         elif objName == "Rook":
-            self.checkAvailableByDirList(self, x, y, self.RightAngleDirs, 7)
+            self.checkAvailableByDirList(self, x, y, obj.RightAngleDirs, 7)
         elif objName == "Knight":
-            self.checkAvailableByDirList(self, x, y, self.KnightDirs, 1)
+            self.checkAvailableByDirList(self, x, y, obj.KnightDirs, 1)
         elif objName == "Pawn":
             self.checkAvailable_Pawn(self, x, y)
 
@@ -425,16 +484,13 @@ class Chess:
         obj = self.getObject(self, x, y)
         turn = self.turn.getThisTurnName()
         if obj != None and obj.color == turn:
-            self.selected[0] = x
-            self.selected[1] = y
+            self.selector.set(x, y)
             self.checkAvailable(self, x, y)
         else:
             print(f"Not Turn : turn={turn}")
 
     def cancelselected(self):
-        if self.selected[0] < 8 and self.selected[1] < 8:
-            self.selected[0] = 8
-            self.selected[1] = 8
+        self.selector.cancel()
         self.availables.clear()
 
     def clicked(self, x, y):
@@ -448,11 +504,10 @@ class Chess:
         if x >= 8 or y >= 8:
             return
 
-        self.cursor[0] = x
-        self.cursor[1] = y
+        self.cursor.set(x,y)
         if self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
             # Cancel previsou selected
-            if self.selected[0] == x and self.selected[1] == y:
+            if self.selector.isPos(x, y):
                 self.cancelselected(self)
                 return
             self.cancelselected(self)
@@ -463,8 +518,7 @@ class Chess:
         for pt in self.availables.get():
             posX, posY = self.getXY(self, pt)
             if posX == x and posY == y:
-                self.moveTo(self, self.selected[0], self.selected[1], posX, posY)
-                self.cancelselected(self)
+                self.moveTo(self, self.selector.x, self.selector.y, posX, posY)
                 break
 
         # Cancel selected
@@ -592,13 +646,8 @@ class Chess:
     history = History()
     turn = Turn()
 
-    RightAngleDirs = [ [0, 1], [0, -1], [1, 0], [-1, 0] ]
-    DiagonalDirs = [ [1, 1], [1, -1], [-1, 1], [-1, -1] ]
-    EveryDirs = RightAngleDirs + DiagonalDirs
-    KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
-
-    selected = [8, 8]
-    cursor = [4, 7]
-
     availables = Available()
     moveables = []
+
+    cursor = Cursor()
+    selector = Selector()

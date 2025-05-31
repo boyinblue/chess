@@ -3,70 +3,108 @@ from chess_view import ChessView
 from threading import Thread, Event
 import socket
 
-##################################################
-# Connect to server
-##################################################
-server_address="localhost"
-server_port = 65535
+comm_type = ""
+sock = None
+host = "localhost"
+port = 65535
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((server_address, server_port))
+def connect():
+    if comm_type == "server":
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((host, port))
+        server_socket.listen(5)
 
-request = f"login"
-client_socket.send(request.encode("utf-8"))
+        client_socket, client_address = server_socket.accept()
+        print(f"클라이언트 {client_address}가 연결되었습니다.")
 
-response = client_socket.recv(1024).decode("utf-8")
-print(f"Login {response}")
+        return client_socket
 
-request = f"list"
-client_socket.send(request.encode("utf-8"))
+    elif comm_type == "client":
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
 
-response = client_socket.recv(1024).decode("utf-8")
-print(f"list : {response}")
+        return sock
 
-##################################################
-# Chess Instance
-##################################################
-myChess = Chess
-myChess.reset(myChess)
+def getCommType():
+    print("Server / client / alone")
+    response = input()
+    if response == "server":
+        comm_type = "server"
+    elif response == "client":
+        comm_type = "client"
+    elif response == "alone":
+        comm_type = "alone"
+    else:
+        exit(0)
 
-##################################################
-# AI Instance
-##################################################
-black = ChessAI("Black", myChess)
-white = None
+    return comm_type
 
-##################################################
-# View Instance
-##################################################
-event = Event()
-myView = ChessView(myChess)
-myView.event = event
-myView.draw()
-#th1 = Thread(target=myView.main)
-#th1.start()
+if __name__ == "__main__":
+    comm_type = getCommType()
+    sock = connect()
 
-##################################################
-# Main Task
-##################################################
-while True:
-    msg = myView.getEvent()
-    if msg != None:
-        print(msg)
-        if msg[0] == "Clicked":
-            myChess.clicked(myChess, msg[1], msg[2])
-            myView.draw()
-        elif msg[0] == "Exit":
-            client_socket.close()
-            break
+    ##################################################
+    # Chess Instance
+    ##################################################
+    if comm_type == "server":
+        myChess = Chess("White")
+        myView = ChessView(myChess, False)
+    else:
+        myChess = Chess("Black")
+        myView = ChessView(myChess, True)
+    #myChess.reset(myChess)
 
-    if myChess.turn.getThisTurnName() == "White" and white != None:
-        print(f"Get Best Move")
-        mov = white.getBestMove()
-        mov.print()
-        myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
-    elif myChess.turn.getThisTurnName() == "Black" and black != None:
-        print(f"Get Best Move")
-        mov = black.getBestMove()
-        mov.print()
-        myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
+    ##################################################
+    # AI Instance
+    ##################################################
+    #black = ChessAI("Black", myChess)
+    #white = None
+
+    ##################################################
+    # View Instance
+    ##################################################
+    event = Event()
+    myView.event = event
+    myView.draw()
+    #th1 = Thread(target=myView.main)
+    #th1.start()
+
+    ##################################################
+    # Main Task
+    ##################################################
+    while True:
+        msg = myView.getEvent()
+        if msg != None:
+            print(msg)
+            if msg[0] == "Clicked":
+                myChess.clicked(myChess, msg[1], msg[2])
+                myView.draw()
+            elif msg[0] == "Left":
+                myChess.cursor.x = ( myChess.cursor.x + 7 ) % 8
+                myView.draw()
+            elif msg[0] == "Right":
+                myChess.cursor.x = ( myChess.cursor.x + 1 ) % 8
+                myView.draw()
+            elif msg[0] == "Up":
+                myChess.cursor.y = ( myChess.cursor.y + 7 ) % 8
+                myView.draw()
+            elif msg[0] == "Down":
+                myChess.cursor.y = ( myChess.cursor.y + 1 ) % 8
+                myView.draw()
+            elif msg[0] == "Select":
+                myChess.clicked(myChess.cursor.x, myChess.cursor.y)
+                myView.draw()
+            elif msg[0] == "Exit":
+                sock.close()
+                break
+
+#        if myChess.turn.getThisTurnName() == "White" and white != None:
+#            print(f"Get Best Move")
+#            mov = white.getBestMove()
+#            mov.print()
+#            myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
+#        elif myChess.turn.getThisTurnName() == "Black" and black != None:
+#            print(f"Get Best Move")
+#            mov = black.getBestMove()
+#            mov.print()
+#            myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)

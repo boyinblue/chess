@@ -1,10 +1,11 @@
 import cv2
-import chess
+from chess import Chess
 
 class ChessView:
-    def __init__(self, chess):
+    def __init__(self, chess, invert):
         self.scale = 1.5
         self.chess = chess
+        self.invert = invert
 
     def loadObjImages(self):
         for obj in self.objs:
@@ -22,7 +23,11 @@ class ChessView:
         cv2.rectangle(self.image, pt1, pt2, color, width)
 
     def draw_object(self, x, y):
-        obj = self.chess.array[y][x]
+        if self.invert == True:
+            obj = self.chess.array[7-y][7-x]
+        else:
+            obj = self.chess.array[y][x]
+
         if obj == None:
             objName = "Empty"
         else:
@@ -34,7 +39,7 @@ class ChessView:
         self.image[pY:pY+self.obj_height, pX:pX+self.obj_width] = self.objImages[objName]
 
         # Draw Border
-        posName = self.chess.getPosName(self.chess, x, y)
+        posName = Chess.getPosName(self.chess, x, y)
         if x != self.chess.cursor.x or y != self.chess.cursor.y:
             self.draw_border(x, y, (0, 0, 0), 1)
         elif self.chess.availables.isAvaiable(posName):
@@ -63,7 +68,7 @@ class ChessView:
     def draw_availables(self):
         for pos in self.chess.availables.get():
             print(f"Draw Availables {pos}")
-            x, y = self.chess.getXY(self.chess, pos)
+            x, y = self.chess.getXY(pos)
             cv2.circle(self.image, (int(x * self.obj_width + self.obj_width / 2), int(y * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (0,0,255), 2)
 
     def delete_info_background(self):
@@ -81,8 +86,10 @@ class ChessView:
             textPos = [ int(400 * self.scale), int(25 * self.scale) ]
         cv2.putText(self.image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
 
-        cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 25 ], 1, 1, (255, 255, 0), 2)
-        cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 50 ], 1, 1, (255, 255, 0), 2)
+        cv2.putText(self.image, f"My Color : {self.chess.turn.color}", [ int(500 * self.scale), 25 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 50 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 75 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "b : Rollback", [ int(500 * self.scale), 100 ], 1, 1, (0, 0, 0), 2)
 
         if self.chess.turn.gameover:
             cv2.putText(self.image, "GAME OVER!", [ int(400 * self.scale), int(50 * self.scale) ], 1, 1, (0, 0, 255), 2)
@@ -97,8 +104,8 @@ class ChessView:
     def draw(self):
         image_org = cv2.imread('img/background.png')
         self.image = cv2.resize(image_org, (int(image_org.shape[1] * self.scale), int(image_org.shape[0] * self.scale)))
-        cv2.imshow('Chess', self.image)
-        cv2.setMouseCallback("Chess", self.mouse_event, self.image)
+        cv2.imshow(f"Chess {self.chess.turn.color}", self.image)
+        cv2.setMouseCallback(f"Chess {self.chess.turn.color}", self.mouse_event, self.image)
         #print(f"Image Size({image.shape[1]} x {image.shape[0]} x {image.shape[2]})")
         self.loadObjImages()
 
@@ -110,7 +117,7 @@ class ChessView:
         self.draw_availables()
         self.draw_info()
 
-        cv2.imshow('Chess', self.image)
+        cv2.imshow(f"Chess {self.chess.turn.color}", self.image)
 
     def scale_up(self):
         self.scale += 0.1
@@ -158,20 +165,15 @@ class ChessView:
         # Arrow Keys (8BitDo Gamepad)
         elif k == ord('e') or k == 0x250000:
             return [ "Left" ]
-            
             self.draw()
         elif k == ord('f') or k == 0x270000:
-            self.chess.cursor[0] = (self.chess.cursor[0] + 1) % 8
-            self.draw()
+            return [ "Right" ]
         elif k == ord('c') or k == 0x260000:
-            self.chess.cursor[1] = (self.chess.cursor[1] + 7) % 8
-            self.draw()
+            return [ "Up" ]
         elif k == ord('d') or k == 0x280000:
-            self.chess.cursor[1] = (self.chess.cursor[1] + 1) % 8
-            self.draw()
+            return [ "Down" ]
         elif k == ord('g') or k == ord(' '):
-            self.chess.clicked(self.chess, self.chess.cursor[0], self.chess.cursor[1])
-            self.draw()
+            return [ "Select" ]
 
         elif k == ord('+'):
             self.scale_up()
@@ -184,6 +186,7 @@ class ChessView:
     obj_width = 0
     obj_height = 0
     scale = 1
+    invert = False
 
     msg = []
 

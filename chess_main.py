@@ -11,9 +11,8 @@ myChess.reset(myChess)
 ##################################################
 # AI Instance
 ##################################################
-user1 = ChessAI("Black", myChess)
-myChess.turn.setAI("Black", user1)
-#user2 = chess.ChessHuman("Black", myChess)
+black = ChessAI("Black", myChess)
+white = None
 
 ##################################################
 # View Instance
@@ -37,3 +36,10 @@ while True:
             myView.draw()
         elif msg[0] == "Exit":
             break
+
+    if myChess.turn.getThisTurnName() == "White" and white != None:
+        mov = white.getBestMove()
+        myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
+    elif myChess.turn.getThisTurnName() == "Black" and black != None:
+        mov = black.getBestMove()
+        myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)

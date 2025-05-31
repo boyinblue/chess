@@ -125,14 +125,6 @@ class Turn:
 
     def nextTurn(self):
         self.turn = self.getNextTurnName()
-        if self.calculating == True:
-            return
-
-        if self.turn == "White" and self.white != None:
-            self.white.doBestMove()
-
-        elif self.turn == "Black" and self.black != None:
-            self.black.doBestMove()
 
     def setAI(self, color, user):
         if color == "White":
@@ -142,8 +134,6 @@ class Turn:
 
     calculating = False
     turn = ""
-    white = None
-    black = None
     winner = ""
     gameover = False
 
@@ -232,96 +222,8 @@ class History:
     arrHistory = []
     arrKilled = []
 
-class ChessUser:
-    def __init__(self, color, chess):
-        self.color = color
-        self.chess = chess
-
-    color = ""
-    chess = None
-
-#class ChessHuman(ChessUser):
-
-
-class ChessAI(ChessUser):
-    def getSelectable(self, chess):
-        selectable = []
-        for x in range(8):
-            for y in range(8):
-                posName = Chess.getPosName(Chess, x, y)
-                obj = chess.array[y][x]
-                if obj == None:
-                    continue
-                elif obj.color == chess.turn.getThisTurnName():
-                    selectable.append(posName)
-
-        return selectable
-    
-    def getMoveable(self, chess, selectable):
-        print(f"selectables {selectable}")
-        for select in selectable:
-            #print(f"Sel {select}")
-            x, y = Chess.getXY(self.chess, select)
-            chess.checkAvailable(chess, x, y)
-
-        return chess.moveables
-
-    def doRandomMove(self, chess):
-        print(f"Random Move")
-        self.chess.moveables.clear()
-        selectable = self.getSelectable(chess)
-        moveables = self.getMoveable(chess, selectable)
-        for mov in self.chess.moveables:
-            mov.print()
-
-        import random
-        randMov = random.choice(self.chess.moveables)
-        self.chess.moveTo(self.chess, randMov.x, randMov.y, randMov.newX, randMov.newY)
-
-    def doBestMove_Recursive(self, chessForAI, cnt):
-        print(f"Do Best Move : Level-{cnt}")
-        if cnt == 0:
-            return None
-        max_score = 0
-        max_move = None
-
-        moveables_old = chessForAI.moveables
-        chessForAI.moveables.clear()
-
-        selectable = self.getSelectable(chessForAI)
-        moveables = self.getMoveable(chessForAI, selectable)
-        for mov in moveables:
-            if mov.score > max_score:
-                print(f"Set Max Score")
-                mov.print()
-                max_score = mov.score
-                max_move = mov
-            chessForAI.moveTo(self.chess, mov.x, mov.y, mov.newX, mov.newY)
-            self.chess.history.print()
-            self.doBestMove_Recursive(chessForAI, cnt - 1)
-            chessForAI.rollback(chessForAI)
-            self.chess.history.print()
-
-        chessForAI.moveables = moveables_old
-
-        return max_move
-
-    def doBestMove(self):
-        print(f"Do Best Move")
-        import copy
-        chessForAI = copy.deepcopy(self.chess)
-        chessForAI.turn.calculating = True
-        max_move = self.doBestMove_Recursive(chessForAI, 1)
-        chessForAI.turn.calculating = False
-
-        if max_move == None:
-            self.doRandomMove(self.chess)
-        else:
-            max_move.print()
-            self.chess.moveTo(self.chess, max_move.x, max_move.y, max_move.newX, max_move.newY)
-
 # Check Class
-class Chess:
+class Board:
     def __init__(self):
         self.reset(self)
 
@@ -336,11 +238,8 @@ class Chess:
                     self.array[y][x] = None
         
         self.turn.reset()
-        self.history.reset()
 
         self.availables.clear()
-
-        self.cursor.reset()
 
     # Dump
     def print(self):
@@ -356,24 +255,24 @@ class Chess:
 
     # Basic I/O functions
     def getObject(self, x, y):
-        if not self.isValidPos(self, x, y):
+        if not Board.isValidPos(self, x, y):
             return None
         return self.array[y][x]
     
     def getObjectName(self, x, y):
-        obj = self.getObject(self, x, y)
+        obj = Board.getObject(self, x, y)
         if obj == None:
             return ""
         return obj.name
     
     def getObjectFullName(self, x, y):
-        obj = self.getObject(self, x, y)
+        obj = Board.getObject(self, x, y)
         if obj == None:
             return "Empty"
         return obj.getFullName()
     
     def getObjectColor(self, x, y):
-        obj = self.getObject(self, x, y)
+        obj = Board.getObject(self, x, y)
         if obj == None:
             return ""
         return obj.color
@@ -384,17 +283,17 @@ class Chess:
         return True
     
     def isEmpty(self, x, y):
-        if self.isValidPos(self, x, y) and self.array[y][x] == None:
+        if Board.isValidPos(self, x, y) and self.array[y][x] == None:
             return True
         return False
     
     def isEnermy(self, x, y):
-        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getNextTurnName():
+        if Board.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getNextTurnName():
             return True
         return False
     
     def isAlly(self, x, y):
-        if self.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getThisTurnName():
+        if Board.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getThisTurnName():
             return True
         return False
     
@@ -411,27 +310,27 @@ class Chess:
     
     # Check Movement functions
     def addAvailable(self, x, y, newX, newY):
-        posName = self.getPosName(self, newX, newY)
+        posName = Board.getPosName(self, newX, newY)
         #print(f"Add Available {posName}")
         self.availables.add(posName)
         mov = Movement(x, y, self.array[y][x], newX, newY, self.array[newY][newX])
         self.moveables.append(mov)
 
     def checkUnitAvailable(self, x, y, newX, newY):
-        if not self.isValidPos(self, newX, newY):
+        if not Board.isValidPos(self, newX, newY):
             return False
-        elif self.isAlly(self, newX, newY):
+        elif Board.isAlly(self, newX, newY):
             return False
         
-        self.addAvailable(self, x, y, newX, newY)
-        if self.isEnermy(self, newX, newY):
+        Board.addAvailable(self, x, y, newX, newY)
+        if Board.isEnermy(self, newX, newY):
             return False
         return True #Continue Checking
         
     def checkAvailableByDirList(self, x, y, dirs, count):
         for dir in dirs:
             for i in range(0, count):
-                if False == self.checkUnitAvailable(self, x, y, x + dir[0] * (i+1), y + dir[1] * (i+1)):
+                if False == Board.checkUnitAvailable(self, x, y, x + dir[0] * (i+1), y + dir[1] * (i+1)):
                     break
 
     def checkCastling(self, x, y):
@@ -445,84 +344,49 @@ class Chess:
     def checkAvailable_Pawn(self, x, y):
         y_offset = 1
         y_org_pos = 1
-        obj = self.getObject(self, x, y)
+        obj = Board.getObject(self, x, y)
         if( obj.color == "White" ):
             y_offset = -1
             y_org_pos = 6
 
-        if self.isEmpty(self, x, y + y_offset):
-            self.addAvailable(self, x, y, x, y + y_offset)
-            if y == y_org_pos and self.isEmpty(self, x, y + y_offset * 2):
-                self.addAvailable(self, x, y, x, y + y_offset * 2)
-        if self.isEnermy(self, x + 1, y + y_offset):
-            self.addAvailable(self, x, y, x + 1, y + y_offset)
-        if self.isEnermy(self, x - 1, y + y_offset):
-            self.addAvailable(self, x, y,  x - 1, y + y_offset)
+        if Board.isEmpty(self, x, y + y_offset):
+            Board.addAvailable(self, x, y, x, y + y_offset)
+            if y == y_org_pos and Board.isEmpty(self, x, y + y_offset * 2):
+                Board.addAvailable(self, x, y, x, y + y_offset * 2)
+        if Board.isEnermy(self, x + 1, y + y_offset):
+            Board.addAvailable(self, x, y, x + 1, y + y_offset)
+        if Board.isEnermy(self, x - 1, y + y_offset):
+            Board.addAvailable(self, x, y,  x - 1, y + y_offset)
 
     def checkAvailable(self, x, y):
         obj = self.array[y][x]
-        objName = self.getObjectName(self, x, y)
+        objName = obj.name
 
         #print(f"Check available x={x}, y={y}, objName={objName}")
 
         if objName == "King":
-            self.checkAvailableByDirList(self, x, y, obj.EveryDirs, 1)
-            self.checkCastling(self, x, y)
+            Board.checkAvailableByDirList(self, x, y, obj.EveryDirs, 1)
+            Board.checkCastling(self, x, y)
         elif objName == "Queen":
-            self.checkAvailableByDirList(self, x, y, obj.EveryDirs, 7)
+            Board.checkAvailableByDirList(self, x, y, obj.EveryDirs, 7)
         elif objName == "Bishop":
-            self.checkAvailableByDirList(self, x, y, obj.DiagonalDirs, 7)
+            Board.checkAvailableByDirList(self, x, y, obj.DiagonalDirs, 7)
         elif objName == "Rook":
-            self.checkAvailableByDirList(self, x, y, obj.RightAngleDirs, 7)
+            Board.checkAvailableByDirList(self, x, y, obj.RightAngleDirs, 7)
         elif objName == "Knight":
-            self.checkAvailableByDirList(self, x, y, obj.KnightDirs, 1)
+            Board.checkAvailableByDirList(self, x, y, obj.KnightDirs, 1)
         elif objName == "Pawn":
-            self.checkAvailable_Pawn(self, x, y)
+            Board.checkAvailable_Pawn(self, x, y)
 
     # Mouse Event
     def selectObject(self, x, y):
-        obj = self.getObject(self, x, y)
+        obj = Board.getObject(self, x, y)
         turn = self.turn.getThisTurnName()
         if obj != None and obj.color == turn:
             self.selector.set(x, y)
-            self.checkAvailable(self, x, y)
+            Board.checkAvailable(self, x, y)
         else:
             print(f"Not Turn : turn={turn}")
-
-    def cancelselected(self):
-        self.selector.cancel()
-        self.availables.clear()
-
-    def clicked(self, x, y):
-        if self.turn.gameover == True:
-            return
-
-        print(f"")
-        print(f"Clicked x={x}, y={y}")
-
-        # Check This Turn Object
-        if x >= 8 or y >= 8:
-            return
-
-        self.cursor.set(x,y)
-        if self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
-            # Cancel previsou selected
-            if self.selector.isPos(x, y):
-                self.cancelselected(self)
-            else:
-                self.cancelselected(self)
-                self.selectObject(self, x, y)
-            return
-
-        # Move selected
-        for pt in self.availables.get():
-            posX, posY = self.getXY(self, pt)
-            if posX == x and posY == y:
-                self.moveTo(self, self.selector.x, self.selector.y, posX, posY)
-                break
-
-        # Cancel selected
-        self.cancelselected(self)
 
     # Actual Movement Functions
     def swap(self, x, y, x2, y2):
@@ -567,31 +431,26 @@ class Chess:
         obj = self.array[y][x]
         if obj is not None and obj.name == "King" and newX - x == 2:
             # Kingside castling
-            self.movement(self, x, y, x + 2, y, 1)
-            self.movement(self, x + 3, y, x + 1, y, 2)
+            Board.movement(self, x, y, x + 2, y, 1)
+            Board.movement(self, x + 3, y, x + 1, y, 2)
         elif obj is not None and obj.name == "King" and  x - newX == 2:
             # Queenside castling
-            self.movement(self, x, y, x - 2, y, 1)
-            self.movement(self, x - 4, y, x - 1, y, 2)
+            Board.movement(self, x, y, x - 2, y, 1)
+            Board.movement(self, x - 4, y, x - 1, y, 2)
         else:
             # Make Movement
-            self.movement(self, x, y, newX, newY)
+            Board.movement(self, x, y, newX, newY)
 
             # Check Pawn Upgrade
             obj = self.array[newY][newX]
             if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
-                self.pawnUpgrade(self, newX, newY)
+                Board.pawnUpgrade(self, newX, newY)
             elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
-                self.pawnUpgrade(self, newX, newY)
+                Board.pawnUpgrade(self, newX, newY)
 
         # Next Turn
         if self.turn.gameover != True:
             self.turn.nextTurn()
-            #try:
-            #    self.turn.nextTurn()
-            #except:
-            #    self.history.print()
-            #    self.print(self)
 
     def rollback(self):
         mov = self.history.rollback()
@@ -643,11 +502,187 @@ class Chess:
         [ None, None, None, None, None, None, None, None ]
     ]
 
-    history = History()
     turn = Turn()
 
     availables = Available()
     moveables = []
+
+class ChessUser:
+    def __init__(self, color, chess):
+        self.color = color
+        self.chess = chess
+
+    color = ""
+    chess = None
+
+#class ChessHuman(ChessUser):
+
+class ChessAI(ChessUser):
+    def getSelectable(self):
+        selectable = []
+        for x in range(8):
+            for y in range(8):
+                posName = Chess.getPosName(Chess, x, y)
+                obj = self.board.array[y][x]
+                if obj == None:
+                    continue
+                elif obj.color == self.board.turn.getThisTurnName():
+                    selectable.append(posName)
+
+        return selectable
+    
+    def getMoveable(self, selectable):
+        print(f"selectables {selectable}")
+        for select in selectable:
+            #print(f"Sel {select}")
+            x, y = Chess.getXY(self.chess, select)
+            self.board.checkAvailable(x, y)
+
+        return self.board.moveables
+
+    def getRandomMove(self):
+        print(f"Random Move")
+        self.moveables.clear()
+        selectable = ChessAI.getSelectable(self)
+        moveables = ChessAI.getMoveable(self, selectable)
+        for mov in self.board.moveables:
+            mov.print()
+
+        import random
+        randMov = random.choice(self.chess.moveables)
+
+        return randMov
+
+    def getBestMove_Recursive(self, chessForAI, cnt):
+        print(f"Do Best Move : Level-{cnt}")
+        if cnt == 0:
+            return None
+        max_score = 0
+        max_move = None
+
+        moveables_old = chessForAI.moveables
+        chessForAI.moveables.clear()
+
+        selectable = ChessAI.getSelectable(self)
+        moveables = ChessAI.getMoveable(self, selectable)
+        for mov in moveables:
+            if mov.score > max_score:
+                print(f"Set Max Score")
+                mov.print()
+                max_score = mov.score
+                max_move = mov
+            Board.moveTo(self.chess, mov.x, mov.y, mov.newX, mov.newY)
+            self.chess.history.print()
+            mov = ChessAI.getBestMove_Recursive(self, chessForAI, cnt - 1)
+            Board.rollback(chessForAI)
+            self.chess.history.print()
+
+        chessForAI.moveables = moveables_old
+
+        return max_move
+
+    def getBestMove(self):
+        print(f"Do Best Move")
+        import copy
+        chessForAI = copy.deepcopy(self.chess)
+        chessForAI.turn.calculating = True
+        max_move = self.getBestMove_Recursive(chessForAI, 1)
+        chessForAI.turn.calculating = False
+
+        if max_move == None:
+            max_move = ChessAI.getRandomMove(self)
+        else:
+            max_move.print()
+
+        return max_move
+
+    board = Board()
+
+# Check Class
+class Chess(Board):
+    def __init__(self):
+        self.reset(self)
+
+    def reset(self, bug = False):
+        super().reset(self, bug)
+        
+        self.history.reset()
+        self.cursor.reset()
+
+    # Mouse Event
+    def selectObject(self, x, y):
+        obj = self.getObject(self, x, y)
+        turn = self.turn.getThisTurnName()
+        if obj != None and obj.color == turn:
+            self.selector.set(x, y)
+            self.checkAvailable(super(), x, y)
+        else:
+            print(f"Not Turn : turn={turn}")
+
+    def cancelselected(self):
+        self.selector.cancel()
+        self.availables.clear()
+
+    def clicked(self, x, y):
+        if self.turn.gameover == True:
+            return
+
+        print(f"")
+        print(f"Clicked x={x}, y={y}")
+
+        # Check This Turn Object
+        if x >= 8 or y >= 8:
+            return
+
+        self.cursor.set(x,y)
+        if self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
+            # Cancel previsou selected
+            if self.selector.isPos(x, y):
+                self.cancelselected(self)
+            else:
+                self.cancelselected(self)
+                self.selectObject(self, x, y)
+            return
+
+        # Move selected
+        for pt in self.availables.get():
+            posX, posY = self.getXY(self, pt)
+            if posX == x and posY == y:
+                self.moveTo(self, self.selector.x, self.selector.y, posX, posY)
+                break
+
+        # Cancel selected
+        self.cancelselected(self)
+
+    def movement(self, x, y, newX, newY, subSeq = 0):
+        print(f"Move({x}, {y} => {newX}, {newY})")
+
+        # Move Count
+        self.array[y][x].move_cnt += 1
+
+        # Write History
+        self.history.append(x, y, self.array[y][x], newX, newY, self.array[newY][newX], subSeq)
+
+        # Check Game Over
+        obj = self.array[newY][newX]
+        if obj is not None and obj.name == "King":
+            self.turn.gameover = True
+            self.turn.winner = self.turn.getThisTurnName()
+
+        # Make movement
+        self.array[newY][newX] = self.array[y][x]
+        self.array[y][x] = None
+
+    def pawnUpgrade(self, x, y):
+        print(f"Pawn Upgrade({x}, {y}")
+
+        # Write History
+        self.history.append(x, y, self.array[y][x], x, y, self.array[x][y], 2)
+
+        # Change pawn to queen
+        self.array[y][x].name = "Queen"
+
+    history = History()
 
     cursor = Cursor()
     selector = Selector()

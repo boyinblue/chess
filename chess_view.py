@@ -1,5 +1,5 @@
 import cv2
-from chess import Chess
+from chess import Chess, Position
 
 class ChessView:
     def __init__(self, chess, invert):
@@ -17,40 +17,82 @@ class ChessView:
 
         #print(f"Object Size : {obj_width} x {obj_height}")
 
-    def draw_border(self, x, y, color, width):
-        pt1 = ( x * self.obj_width + width, y * self.obj_height + width )
-        pt2 = ( x * self.obj_width + self.obj_width - width, y * self.obj_height + self.obj_height - width )
-        cv2.rectangle(self.image, pt1, pt2, color, width)
-
-    def draw_object(self, x, y):
-        if self.invert == True:
-            obj = self.chess.array[7-y][7-x]
+    def getObjectCoordinate(self, x, y, width):
+        ptX = ( x + 1 ) * self.obj_width + width
+        ptY = ( y + 1 ) * self.obj_height + width
+        ptX2 = ( x + 2 ) * self.obj_width - width
+        ptY2 = ( y + 2 ) * self.obj_height - width
+        return ptX, ptY, ptX2, ptY2
+    
+    # Basic I/O functions
+    def getPosName(self, x, y, invert=False):
+        if invert == True:
+            posName = f"{y+1}{Position.Id2Col[7-x]}"
         else:
-            obj = self.chess.array[y][x]
+            posName = f"{8-y}{Position.Id2Col[x]}"
 
+        return posName
+    
+    def getXY(self, posName, invert = False):
+        if invert == True:
+            y = ord(posName[0]) - ord('1')
+            x = 7 - ord(posName[1]) + ord('A')
+        else:
+            y = 7 - ord(posName[0]) + ord('1')
+            x = ord(posName[1])-ord('A')
+        return x, y
+    
+    def drawPosName(self):
+        for i in range(8):
+            if self.invert == True:
+                Idx = 7 - i
+            else:
+                Idx = i
+
+            textPos = [ int(self.obj_width / 2), int( ( i + 1 ) * self.obj_height + self.obj_height / 2) ]
+            cv2.putText(self.image, f"{Position.Id2Row[Idx]}", textPos, 1, 1, (0, 0, 0), 2)
+            textPos = [ int( ( i + 1 ) * self.obj_width + self.obj_width / 2), int(self.obj_height/2) ]
+            cv2.putText(self.image, f"{Position.Id2Col[Idx]}", textPos, 1, 1, (0, 0, 0), 2)
+
+    def draw_border(self, x, y, color, width):
+        ptX, ptY, ptX2, ptY2 = self.getObjectCoordinate(x, y, width)
+        cv2.rectangle(self.image, (ptX, ptY), (ptX2, ptY2), color, width)
+
+    def draw_object(self, posName):
+        obj = self.chess.array[posName]
         if obj == None:
             objName = "Empty"
         else:
             objName = obj.getFullName()
 
+        #print(f"{self.image.shape}")
+
         # Draw Object
-        pX = x * self.obj_width + 1
-        pY = y * self.obj_height + 1
-        self.image[pY:pY+self.obj_height, pX:pX+self.obj_width] = self.objImages[objName]
+        x, y = self.getXY(posName, self.invert)
+        ptX, ptY, ptX2, ptY2 = self.getObjectCoordinate(x, y, 0)
+        #print(f"Draw {posName} {x} {y} : {ptX} {ptY} {ptX2} {ptY2}")
+        self.image[ptY:ptY2, ptX:ptX2] = self.objImages[objName]
 
         # Draw Border
-        posName = Chess.getPosName(self.chess, x, y)
-        if x != self.chess.cursor.x or y != self.chess.cursor.y:
+        posName = self.getPosName(x, y, self.invert)
+        self.posCoordinator.append([ptX, ptY, ptX2, ptY2, posName])
+
+        if self.chess.availables.isAvaiable(posName):
+            self.draw_border(x, y, (0, 255, 0), 6)
+        elif self.chess.selector.posName == posName:
+            self.draw_border(x, y, (0, 0, 0), 6)
+        
+        if posName != self.chess.cursor.posName:
             self.draw_border(x, y, (0, 0, 0), 1)
         elif self.chess.availables.isAvaiable(posName):
             self.draw_border(x, y, (255, 0, 0), 3)
-        elif self.chess.array[y][x] != None and self.chess.array[y][x].getColor() == self.chess.turn.getThisTurnName():
+        elif obj != None and obj.getColor() == self.chess.turn.getThisTurnName():
             self.draw_border(x, y, (255, 0, 0), 3)
         else:
             self.draw_border(x, y, (0, 0, 255), 3)
 
     def drawKilledObject(self, x, y, objName):
-        print(f"Draw Killed Obj x={x}, y={y}")
+        #print(f"Draw Killed Obj x={x}, y={y}")
 
         # Draw Object
         pX = int(500 * self.scale + x * self.obj_width / 2 + 1)
@@ -63,16 +105,18 @@ class ChessView:
         if x >= 8 or y >= 8:
             return
         print(f"Draw selected")
-        cv2.circle(self.image, (int(x * self.obj_width + self.obj_width / 2), int(y * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (255,255,0), 2)
+        ptX, ptY, ptX2, ptY2 = self.getObjectCoordinate(x, y, 6)
+        cv2.rectangle(self.image, (ptX, ptY), (ptX2, ptY2), (0, 0, 0), 6)
 
     def draw_availables(self):
         for pos in self.chess.availables.get():
             print(f"Draw Availables {pos}")
-            x, y = self.chess.getXY(pos)
-            cv2.circle(self.image, (int(x * self.obj_width + self.obj_width / 2), int(y * self.obj_height + self.obj_height / 2)), int(self.obj_width / 3), (0,0,255), 2)
+            x, y = self.chess.getXY(pos, self.invert)
+            ptX, ptY, ptX2, ptY2 = self.getObjectCoordinate(x, y, 4)
+            cv2.rectangle(self.image, (ptX, ptY), (ptX2, ptY2), (0, 255, 0), 4)
 
     def delete_info_background(self):
-        pt1 = ( int(400 * self.scale), 0 )
+        pt1 = ( int(500 * self.scale), 0 )
         pt2 = ( int(800 * self.scale), int(400 * self.scale) )
         cv2.rectangle(self.image, pt1, pt2, (255,255,255), -1)
 
@@ -80,19 +124,24 @@ class ChessView:
         self.delete_info_background()
 
         turn = self.chess.turn.getThisTurnName()
-        if turn == "White":
-            textPos = [ int(400 * self.scale), int(375 * self.scale) ]
+        posName = self.chess.cursor.posName
+        obj = self.chess.getObject(posName)
+        if obj == None:
+            objName = "Empty"
         else:
-            textPos = [ int(400 * self.scale), int(25 * self.scale) ]
-        cv2.putText(self.image, f"< {turn}", textPos, 1, 1, (0, 0, 0), 2)
+            objName = obj.getFullName()
 
-        cv2.putText(self.image, f"My Color : {self.chess.turn.color}", [ int(500 * self.scale), 25 ], 1, 1, (0, 0, 0), 2)
-        cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 50 ], 1, 1, (0, 0, 0), 2)
-        cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 75 ], 1, 1, (0, 0, 0), 2)
-        cv2.putText(self.image, "b : Rollback", [ int(500 * self.scale), 100 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, self.chess.turn.comm_type, [ int(500 * self.scale), 25 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, f"My Color : {self.chess.turn.color}", [ int(500 * self.scale), 50 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, f"Turn : {turn}", [ int(500 * self.scale), 75 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, f"Cursor : {posName}", [ int(500 * self.scale), 100 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, f"Object : {objName}", [ int(500 * self.scale), 120 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 150 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 175 ], 1, 1, (0, 0, 0), 2)
+        cv2.putText(self.image, "b : Rollback", [ int(500 * self.scale), 200 ], 1, 1, (0, 0, 0), 2)
 
         if self.chess.turn.gameover:
-            cv2.putText(self.image, "GAME OVER!", [ int(400 * self.scale), int(50 * self.scale) ], 1, 1, (0, 0, 255), 2)
+            cv2.putText(self.image, "GAME OVER!", [ int(500 * self.scale), 225 ], 1, 1, (0, 0, 255), 2)
 
         i = 0
         for killedObj in self.chess.history.arrKilled:
@@ -109,12 +158,16 @@ class ChessView:
         #print(f"Image Size({image.shape[1]} x {image.shape[0]} x {image.shape[2]})")
         self.loadObjImages()
 
-        for x in range(8):
-            for y in range(8):
-                self.draw_object(x, y)
+        self.drawPosName()
 
-        self.draw_selected()
-        self.draw_availables()
+        self.posCoordinator.clear()
+        posNames = self.chess.cursor.getAllPosNames()
+        #print(f"Pos Names for drawing : {posNames}")
+        for posName in posNames:
+            self.draw_object(posName)
+
+        #self.draw_availables()
+        #self.draw_selected()
         self.draw_info()
 
         cv2.imshow(f"Chess {self.chess.turn.color}", self.image)
@@ -133,8 +186,12 @@ class ChessView:
     def mouse_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_FLAG_LBUTTON:
             print(f"Clicked {x},{y}")
-            msg = [ "Clicked", int(x / self.obj_width), int(y / self.obj_height) ]
-            self.msg.append(msg)
+            for coord in self.posCoordinator:
+                #print(f"Check {x} {y}, {coord[0]} {coord[1]} {coord[2]} {coord[3]}")
+                if x > coord[0] and x < coord[2] and y > coord[1] and y < coord[3]:
+                    msg = [ "Clicked", coord[4] ]
+                    self.msg.append(msg)
+                    break
 
     def getEvent(self):
         if len(self.msg):
@@ -151,27 +208,38 @@ class ChessView:
             msg = [ "Exit" ]
             return msg
         elif k == ord('R'):
-            self.chess.reset(self.chess, True)
+            self.chess.reset(True)
             self.draw()
         elif k == ord('r'):
-            self.chess.reset(self.chess)
+            self.chess.reset()
             self.draw()
         elif k == ord('b'):
-            self.chess.cancelselected(self.chess)
-            if self.chess.rollback(self.chess):
+            self.chess.cancelselected()
+            if self.chess.rollback():
                 # Castling rollback takes 2 actions.
-                self.chess.rollback(self.chess)
+                self.chess.rollback()
             self.draw()
         # Arrow Keys (8BitDo Gamepad)
-        elif k == ord('e') or k == 0x250000:
-            return [ "Left" ]
-            self.draw()
-        elif k == ord('f') or k == 0x270000:
-            return [ "Right" ]
-        elif k == ord('c') or k == 0x260000:
-            return [ "Up" ]
+        elif k == ord('e') or k == 0x250000:    # Left Key
+            if self.invert == True:
+                return [ "Right"]
+            else:
+                return [ "Left" ]
+        elif k == ord('f') or k == 0x270000:    # Right Key
+            if self.invert == True:
+                return [ "Left" ]
+            else:
+                return [ "Right" ]
+        elif k == ord('c') or k == 0x260000:    # Up Key
+            if self.invert == True:
+                return [ "Down" ]
+            else:
+                return [ "Up" ]
         elif k == ord('d') or k == 0x280000:
-            return [ "Down" ]
+            if self.invert == True:
+                return [ "Up" ]
+            else:
+                return [ "Down" ]
         elif k == ord('g') or k == ord(' '):
             return [ "Select" ]
 
@@ -189,6 +257,7 @@ class ChessView:
     invert = False
 
     msg = []
+    posCoordinator = []
 
     chess = None
 

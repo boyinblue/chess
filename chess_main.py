@@ -49,9 +49,15 @@ if __name__ == "__main__":
     if comm_type == "server":
         myChess = Chess("White")
         myView = ChessView(myChess, False)
+    elif comm_type == "client":
+        myChess = Chess("Black")
+        myView = ChessView(myChess, True)
     else:
         myChess = Chess("Black")
         myView = ChessView(myChess, True)
+        #myChess = Chess("White")
+        #myView = ChessView(myChess, False)
+    myChess.turn.comm_type = comm_type
     #myChess.reset(myChess)
 
     ##################################################
@@ -77,25 +83,26 @@ if __name__ == "__main__":
         if msg != None:
             print(msg)
             if msg[0] == "Clicked":
-                myChess.clicked(myChess, msg[1], msg[2])
+                myChess.clicked(myChess, msg[1])
                 myView.draw()
             elif msg[0] == "Left":
-                myChess.cursor.x = ( myChess.cursor.x + 7 ) % 8
+                myChess.cursor.changePosByDelta(-1, 0)
                 myView.draw()
             elif msg[0] == "Right":
-                myChess.cursor.x = ( myChess.cursor.x + 1 ) % 8
+                myChess.cursor.changePosByDelta(1, 0)
                 myView.draw()
             elif msg[0] == "Up":
-                myChess.cursor.y = ( myChess.cursor.y + 7 ) % 8
+                myChess.cursor.changePosByDelta(0, 1)
                 myView.draw()
             elif msg[0] == "Down":
-                myChess.cursor.y = ( myChess.cursor.y + 1 ) % 8
+                myChess.cursor.changePosByDelta(0, -1)
                 myView.draw()
             elif msg[0] == "Select":
-                myChess.clicked(myChess.cursor.x, myChess.cursor.y)
+                myChess.clicked(myChess.cursor.posName)
                 myView.draw()
             elif msg[0] == "Exit":
-                sock.close()
+                if sock != None:
+                    sock.close()
                 break
 
 #        if myChess.turn.getThisTurnName() == "White" and white != None:

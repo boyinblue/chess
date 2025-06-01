@@ -1,4 +1,98 @@
-import cv2
+# Define Classes For Chess
+
+class Position:
+    def __init__(self, posName):
+        self.set(posName)
+
+    def set(self, posName):
+        self.posName = posName
+
+    def get(self):
+        return self.posName
+    
+    def getDeltaPos(self, dX, dY):
+        newPosName = self.getDeltaPosName(dX, dY)
+        if newPosName != "":
+            return Position(newPosName)
+        return None
+
+    def getDeltaPosName(self, dX, dY):
+        x = self.Col2Id[self.posName[1]] + dX
+        y = self.Row2Id[self.posName[0]] - dY
+        if x >= 0 and x < 8 and y >= 0 and y < 8:
+            return f"{self.Id2Row[y]}{self.Id2Col[x]}"
+        return ""
+    
+    def isPos(self, posName):
+        if self.posName == posName:
+            return True
+        return False
+    
+    def getAllPosNames(self):
+        return self.allPosNames
+    
+    def changePosByDelta(self, dX, dY):
+        newPos = self.getDeltaPosName(dX, dY)
+        if newPos != "":
+            self.posName = newPos
+        return newPos
+
+    posName = ""
+    allPosNames = [
+        "1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H",
+        "2A", "2B", "2C", "2D", "2E", "2F", "2G", "2H",
+        "3A", "3B", "3C", "3D", "3E", "3F", "3G", "3H",
+        "4A", "4B", "4C", "4D", "4E", "4F", "4G", "4H",
+        "5A", "5B", "5C", "5D", "5E", "5F", "5G", "5H",
+        "6A", "6B", "6C", "6D", "6E", "6F", "6G", "6H",
+        "7A", "7B", "7C", "7D", "7E", "7F", "7G", "7H",
+        "8A", "8B", "8C", "8D", "8E", "8F", "8G", "8H",
+    ]
+    Id2Col = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
+    Id2Row = [ '8', '7', '6', '5', '4', '3', '2', '1' ]
+    Col2Id = {
+        "A" : 0,
+        "B" : 1,
+        "C" : 2,
+        "D" : 3,
+        "E" : 4,
+        "F" : 5,
+        "G" : 6,
+        "H" : 7
+    }
+    Row2Id = {
+        "8" : 0,
+        "7" : 1,
+        "6" : 2,
+        "5" : 3,
+        "4" : 4,
+        "3" : 5,
+        "2" : 6,
+        "1" : 7
+    }
+
+class Cursor(Position):
+    def reset(self):
+        self.set("1A")
+
+    posName = ""
+
+class Selector(Position):
+    def reset(self):
+        self.posName = ""
+
+    def cancel(self):
+        #print("Cancel selector")
+        self.reset()
+        #self.print()
+
+    def isValid(self):
+        if self.posName in self.allPosNames:
+            return True
+        return False
+    
+    def print(self):
+        print(f"Selector : {posName}")
 
 # Chess Object Class
 class Object:
@@ -41,60 +135,6 @@ class Object:
     EveryDirs = RightAngleDirs + DiagonalDirs
     KnightDirs = [ [1, 2], [1, -2], [-1, 2], [-1, -2], [2, 1], [2, -1], [-2, 1], [-2, -1] ]
 
-class Position:
-    def set(self, x, y):
-        self.x = x
-        self.y = y
-
-    def get(self):
-        return self.x, self.y
-    
-    def isPos(self, x, y):
-        if self.x == x and self.y == y:
-            return True
-        return False
-
-class Cursor(Position):
-    def reset(self):
-        self.x = 0
-        self.y = 0
-
-    def left(self):
-        self.x = (self.x + 7) % 8
-
-    def right(self):
-        self.x = (self.x + 1) % 8
-    
-    def up(self):
-        self.y = (self.y + 7) % 8
-
-    def down(self):
-        self.y = (self.y + 1) % 8
-
-    x = 4
-    y = 7
-
-class Selector(Position):
-    def reset(self):
-        self.x = 8
-        self.y = 8
-
-    def cancel(self):
-        #print("Cancel selector")
-        self.reset()
-        #self.print()
-
-    def isValid(self):
-        if self.x < 8 and self.y < 8:
-            return True
-        return False
-    
-    def print(self):
-        print(f"Selector : {self.x}, {self.y}")
-
-    x = 8
-    y = 8
-
 # Turn Class
 class Turn:
     def __init__(self):
@@ -132,6 +172,7 @@ class Turn:
         elif color == "Black":
             self.black = user
 
+    comm_type = ""
     color = ""
     turn = ""
     winner = ""
@@ -161,12 +202,10 @@ class Available:
 
 # Movement Class
 class Movement:
-    def __init__(self, x, y, obj, newX, newY, newObj, subSeq = 0):
-        self.x = x
-        self.y = y
+    def __init__(self, posName, obj, newPosName, newObj, subSeq = 0):
+        self.posName = posName
         self.obj = obj
-        self.newX = newX
-        self.newY = newY
+        self.newPosName = newPosName
         self.newObj = newObj
         self.subSeq = subSeq
         if self.newObj == None:
@@ -178,13 +217,11 @@ class Movement:
         newObjName = "Empty"
         if self.newObj != None:
             newObjName = self.newObj.getFullName()
-        print(f"Movement : {self.x} {self.y} {objName} {self.newX} {self.newY} {newObjName} (Sub Seq : {self.subSeq}) (score : {self.score})")
+        print(f"Movement : {self.posName} {objName} {self.newPosName} {newObjName} (Sub Seq : {self.subSeq}) (score : {self.score})")
 
-    x = 0
-    y = 0
+    posName = ""
     obj = None
-    newX = 0
-    newY = 0
+    newPosName = ""
     newObj = None
     subSeq = 0
     score = 0
@@ -195,12 +232,12 @@ class History:
         self.arrHistory.clear()
         self.arrKilled.clear()
 
-    def append(self, x, y, obj, newX, newY, newObj, subSeq = 0):
-        moveInfo = Movement(x, y, obj, newX, newY, newObj, subSeq)
+    def append(self, posName, obj, newPosName, newObj, subSeq = 0):
+        moveInfo = Movement(posName, obj, newPosName, newObj, subSeq)
         print(f"Move Info : {moveInfo.print()}")
         self.arrHistory.append(moveInfo)
 
-        if x != newX and y != newY and newObj != None:
+        if posName != newPosName and newObj != None:
             self.arrKilled.append(newObj)
 
     def rollback(self):
@@ -208,7 +245,7 @@ class History:
             return None
 
         last = self.arrHistory.pop()
-        if last.x != last.newX and last.y != last.newY and last.newObj != None:
+        if last.posName != last.newPosName and last.newObj != None:
             self.arrKilled.pop()
         last.print()
 
@@ -230,19 +267,21 @@ class Chess:
         print(f"Set {color} color")
 
     def reset(self, bug = False):
-        for x in range(8):
-            for y in range(8):
-                obj_name = self.array_org[y][x]
-                print(f"Generate Object x={x}, y={y}, {obj_name}")
-                if obj_name != "Empty":
-                    self.array[y][x] = Object(obj_name[5:], obj_name[0:5])
-                elif bug == False:
-                    self.array[y][x] = None
-        
         self.turn.reset()
         self.availables.clear()
         self.history.reset()
         self.cursor.reset()
+
+        posNames = self.cursor.getAllPosNames()
+        for posName in posNames:
+            if posName in self.array_org:
+                objName = self.array_org[posName]
+                self.array[posName] = Object(objName[5:], objName[0:5])
+                self.array[posName].posName = posName
+            else:
+                objName = "Empty"
+                self.array[posName] = None
+            print(f"Generate Object posName : {objName}")
 
     # Dump
     def print(self):
@@ -257,137 +296,151 @@ class Chess:
         print(f"Dump Chess - Completed")
 
     # Basic I/O functions
-    def getObject(self, x, y):
-        if not Chess.isValidPos(self, x, y):
-            return None
-        return self.array[y][x]
+    def getObject(self, posName):
+        if posName in self.array:
+            return self.array[posName]
+        return None
     
-    def getObjectName(self, x, y):
-        obj = Chess.getObject(self, x, y)
+    def getObjectName(self, posName):
+        obj = self.getObject(self, posName)
         if obj == None:
             return ""
         return obj.name
     
-    def getObjectFullName(self, x, y):
-        obj = Chess.getObject(self, x, y)
+    def getObjectFullName(self, posName):
+        obj = self.getObject(self, posName)
         if obj == None:
             return "Empty"
         return obj.getFullName()
     
-    def getObjectColor(self, x, y):
-        obj = Chess.getObject(self, x, y)
+    def getObjectColor(self, posName):
+        obj = self.getObject(self, posName)
         if obj == None:
             return ""
         return obj.color
     
-    def isValidPos(self, x, y):
-        if x < 0 or x >= 8 or y < 0 or y >= 8:
-            return False
-        return True
-    
-    def isEmpty(self, x, y):
-        if Chess.isValidPos(self, x, y) and self.array[y][x] == None:
+    def isValidPos(self, posName):
+        pos = Position(posName)
+        #print(f"Check Valid Pos {posName}")
+        if posName in pos.getAllPosNames():
+            return True
+        return False
+
+    def isEmpty(self, posName):
+        if self.isValidPos(posName) and self.array[posName] == None:
             return True
         return False
     
-    def isEnermy(self, x, y):
-        if Chess.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getNextTurnName():
+    def isEnermy(self, posName):
+        if self.isValidPos(posName) and self.array[posName] != None and self.array[posName].color == self.turn.getNextTurnName():
             return True
         return False
     
-    def isAlly(self, x, y):
-        if Chess.isValidPos(self, x, y) and self.array[y][x] != None and self.array[y][x].color == self.turn.getThisTurnName():
+    def isAlly(self, posName):
+        if self.isValidPos(posName) and self.array[posName] != None and self.array[posName].color == self.turn.getThisTurnName():
             return True
         return False
-    
-    # Basic I/O functions
-    def getPosName(self, x, y):
-        ColName = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ]
-        posName = f"{y}{ColName[x]}"
-        return posName
-    
-    def getXY(self, posName):
-        y = ord(posName[0])-ord('0')
-        x = ord(posName[1])-ord('A')
-        return x, y
     
     # Check Movement functions
-    def addAvailable(self, x, y, newX, newY):
-        posName = Chess.getPosName(self, newX, newY)
-        #print(f"Add Available {posName}")
-        self.availables.add(posName)
-        mov = Movement(x, y, self.array[y][x], newX, newY, self.array[newY][newX])
+    def addAvailable(self, posName, newPos):
+        print(f"Add Available {posName} {newPos}")
+        self.availables.add(newPos)
+        mov = Movement(posName, self.array[posName], newPos, self.array[newPos])
         self.moveables.append(mov)
 
-    def checkUnitAvailable(self, x, y, newX, newY):
-        if not Chess.isValidPos(self, newX, newY):
+    def checkUnitAvailable(self, posName, newPos):
+        if not self.isValidPos(newPos):
             return False
-        elif Chess.isAlly(self, newX, newY):
+        elif self.isAlly(newPos):
             return False
         
-        Chess.addAvailable(self, x, y, newX, newY)
-        if Chess.isEnermy(self, newX, newY):
+        self.addAvailable(posName, newPos)
+        if self.isEnermy(newPos):
             return False
         return True #Continue Checking
         
-    def checkAvailableByDirList(self, x, y, dirs, count):
+    def checkAvailableByDirList(self, pos, dirs, count):
         for dir in dirs:
             for i in range(0, count):
-                if False == Chess.checkUnitAvailable(self, x, y, x + dir[0] * (i+1), y + dir[1] * (i+1)):
+                newPosName = pos.getDeltaPosName(dir[0] * (i+1), dir[1] * (i+1))
+                if False == self.checkUnitAvailable(pos.posName, newPosName):
                     break
 
-    def checkCastling(self, x, y):
-        if self.array[y][x].move_cnt != 0:
+    def checkCastling(self, posName):
+        if self.array[posName].move_cnt != 0:
             return False
-        if self.array[y][x+1] == None and self.array[y][x+2] == None and self.array[y][x+3] != None and self.array[y][x+3].move_cnt == 0:
-            self.addAvailable(self, x, y, x + 2, y)
-        if self.array[y][x-1] == None and self.array[y][x-2] == None and self.array[y][x-3] == None and self.array[y][x-4] != None and self.array[y][x-4].move_cnt == 0:
-            self.addAvailable(self, x, y, x - 2, y)
+        elif posName[0] != "1" and posName[0] != "8":
+            return False
+        elif posName[1] != "E":
+            return False
+        
+        if posName == "1E":
+            if self.array["1F"] == None and self.array["1G"] == None and self.array["1H"] != None and self.array["1H"].move_cnt == 0:
+                self.addAvailable(posName, "1G")
+            if self.array["1D"] == None and self.array["1C"] == None and self.array["1B"] == None and self.array["1A"] != None and self.array["1A"].move_cnt == 0:
+                self.addAvailable(posName, "1C")
+        elif posName == "8E":
+            if self.array["8F"] == None and self.array["8G"] == None and self.array["8H"] != None and self.array["8H"].move_cnt == 0:
+                self.addAvailable(posName, "8G")
+            if self.array["1D"] == None and self.array["1C"] == None and self.array["1B"] == None and self.array["1A"] != None and self.array["1A"].move_cnt == 0:
+                self.addAvailable(posName, "8C")        
 
-    def checkAvailable_Pawn(self, x, y):
-        y_offset = 1
-        y_org_pos = 1
-        obj = Chess.getObject(self, x, y)
+    def checkAvailable_Pawn(self, posName):
+        print(f"Check Pawn Available {posName}")
+        y_offset = -1
+        y_org_pos = "7"
+        obj = self.getObject(posName)
+        print(f"Obj Color : {obj.color}")
         if( obj.color == "White" ):
-            y_offset = -1
-            y_org_pos = 6
+            y_offset = 1
+            y_org_pos = "2"
 
-        if Chess.isEmpty(self, x, y + y_offset):
-            Chess.addAvailable(self, x, y, x, y + y_offset)
-            if y == y_org_pos and Chess.isEmpty(self, x, y + y_offset * 2):
-                Chess.addAvailable(self, x, y, x, y + y_offset * 2)
-        if Chess.isEnermy(self, x + 1, y + y_offset):
-            Chess.addAvailable(self, x, y, x + 1, y + y_offset)
-        if Chess.isEnermy(self, x - 1, y + y_offset):
-            Chess.addAvailable(self, x, y,  x - 1, y + y_offset)
+        pos = Position(posName)
+        newPosName = pos.getDeltaPosName(0, y_offset)
+        print(f"New Pos Name {newPosName}")
+        if self.isEmpty(newPosName):
+            self.addAvailable(posName, newPosName)
+            print(f"New Pos Name {newPosName}")
+            newPosName = pos.getDeltaPosName(0, y_offset * 2)
+            if posName[0] == y_org_pos and self.isEmpty(newPosName):
+                self.addAvailable(posName, newPosName)
+        newPosName = pos.getDeltaPosName(1, y_offset)
+        print(f"New Pos Name {newPosName}")
+        if self.isEnermy(newPosName):
+            self.addAvailable(posName, newPosName)
+        newPosName = pos.getDeltaPosName(-1, y_offset)
+        print(f"New Pos Name {newPosName}")
+        if self.isEnermy(newPosName):
+            self.addAvailable(posName, newPosName)
 
-    def checkAvailable(self, x, y):
-        obj = self.array[y][x]
+    def checkAvailable(self, posName):
+        pos = Position(posName)
+        obj = self.array[posName]
         objName = obj.name
 
         #print(f"Check available x={x}, y={y}, objName={objName}")
 
         if objName == "King":
-            Chess.checkAvailableByDirList(self, x, y, obj.EveryDirs, 1)
-            Chess.checkCastling(self, x, y)
+            self.checkAvailableByDirList(pos, obj.EveryDirs, 1)
+            self.checkCastling(posName)
         elif objName == "Queen":
-            Chess.checkAvailableByDirList(self, x, y, obj.EveryDirs, 7)
+            self.checkAvailableByDirList(pos, obj.EveryDirs, 7)
         elif objName == "Bishop":
-            Chess.checkAvailableByDirList(self, x, y, obj.DiagonalDirs, 7)
+            self.checkAvailableByDirList(pos, obj.DiagonalDirs, 7)
         elif objName == "Rook":
-            Chess.checkAvailableByDirList(self, x, y, obj.RightAngleDirs, 7)
+            self.checkAvailableByDirList(pos, obj.RightAngleDirs, 7)
         elif objName == "Knight":
-            Chess.checkAvailableByDirList(self, x, y, obj.KnightDirs, 1)
+            self.checkAvailableByDirList(pos, obj.KnightDirs, 1)
         elif objName == "Pawn":
-            Chess.checkAvailable_Pawn(self, x, y)
+            self.checkAvailable_Pawn(posName)
 
     # Mouse Event
-    def selectObject(self, x, y):
-        obj = Chess.getObject(self, x, y)
+    def selectObject(self, posName):
+        obj = self.getObject(posName)
         turn = self.turn.getThisTurnName()
         if obj != None and obj.color == turn:
-            self.selector.set(x, y)
-            Chess.checkAvailable(self, x, y)
+            self.selector.set(posName)
+            self.checkAvailable(posName)
         else:
             print(f"Not Turn : turn={turn}")
 
@@ -395,32 +448,28 @@ class Chess:
         self.selector.cancel()
         self.availables.clear()
 
-    def clicked(self, x, y):
+    def clicked(self, posName):
         if self.turn.gameover == True:
             return
 
         print(f"")
-        print(f"Clicked x={x}, y={y}")
+        print(f"Clicked {posName}")
 
-        # Check This Turn Object
-        if x >= 8 or y >= 8:
-            return
+        self.cursor.set(posName)
 
-        self.cursor.set(x,y)
-        if self.array[y][x] != None and self.turn.checkThisTurnObj(self.array[y][x]):
+        if posName in self.array and self.turn.checkThisTurnObj(self.array[posName]):
             # Cancel previsou selected
-            if self.selector.isPos(x, y):
+            if self.selector.isPos(posName):
                 self.cancelselected()
             else:
                 self.cancelselected()
-                self.selectObject(x, y)
+                self.selectObject(posName)
             return
 
         # Move selected
         for pt in self.availables.get():
-            posX, posY = self.getXY(pt)
-            if posX == x and posY == y:
-                self.moveTo(self.selector.x, self.selector.y, posX, posY)
+            if pt == posName:
+                self.moveTo(self.selector.posName, posName)
                 break
 
         # Cancel selected
@@ -436,55 +485,59 @@ class Chess:
         self.array[x][y].move_cnt += 1
         self.array[x2][y2].move_cnt += 1
 
-    def movement(self, x, y, newX, newY, subSeq = 0):
-        print(f"Move({x}, {y} => {newX}, {newY})")
+    def movement(self, posName, newPosName, subSeq = 0):
+        print(f"Move({posName} => {newPosName})")
 
         # Move Count
-        self.array[y][x].move_cnt += 1
+        self.array[posName].move_cnt += 1
 
         # Write History
-        self.history.append(x, y, self.array[y][x], newX, newY, self.array[newY][newX], subSeq)
+        self.history.append(posName, self.array[posName], newPosName, self.array[newPosName], subSeq)
 
         # Check Game Over
-        obj = self.array[newY][newX]
+        obj = self.array[newPosName]
         if obj is not None and obj.name == "King":
             self.turn.gameover = True
             self.turn.winner = self.turn.getThisTurnName()
 
         # Make movement
-        self.array[newY][newX] = self.array[y][x]
-        self.array[y][x] = None
+        self.array[newPosName] = self.array[posName]
+        self.array[posName] = None
 
-    def pawnUpgrade(self, x, y):
-        print(f"Pawn Upgrade({x}, {y}")
+    def pawnUpgrade(self, posName):
+        print(f"Pawn Upgrade({posName}")
 
         # Write History
-        self.history.append(x, y, self.array[y][x], x, y, self.array[x][y], 2)
+        self.history.append(posName, self.array[posName], posName, self.array[posName], 2)
 
         # Change pawn to queen
-        self.array[y][x].name = "Queen"
+        self.array[posName].name = "Queen"
 
-    def moveTo(self, x, y, newX, newY):
+    def moveTo(self, posName, newPosName):
         # Castling
-        obj = self.array[y][x]
-        if obj is not None and obj.name == "King" and newX - x == 2:
+        obj = self.array[posName]
+        if obj is not None and obj.name == "King" and posName[1] == "E" and newPosName[1] == "G":
             # Kingside castling
-            Chess.movement(self, x, y, x + 2, y, 1)
-            Chess.movement(self, x + 3, y, x + 1, y, 2)
-        elif obj is not None and obj.name == "King" and  x - newX == 2:
+            self.movement(posName, newPosName)
+            posNameRook = Position(posName).getDeltaPosName(3, 0)
+            posNameNewRook = Position(posName).getDeltaPosName(1, 0)
+            self.movement(posNameRook, posNameNewRook, 2)
+        elif obj is not None and obj.name == "King" and posName[1] == "E" and newPosName[1] == "C":
             # Queenside castling
-            Chess.movement(self, x, y, x - 2, y, 1)
-            Chess.movement(self, x - 4, y, x - 1, y, 2)
+            self.movement(posName, newPosName)
+            posNameRook = Position(posName).getDeltaPosName(-4, 0)
+            posNameNewRook = Position(posName).getDeltaPosName(-2, 0)
+            self.movement(posNameRook, posNameNewRook, 2)
         else:
             # Make Movement
-            Chess.movement(self, x, y, newX, newY)
+            self.movement(posName, newPosName)
 
             # Check Pawn Upgrade
-            obj = self.array[newY][newX]
-            if obj is not None and obj.name == "Pawn" and obj.color == "White" and newY == 0:
-                Chess.pawnUpgrade(self, newX, newY)
-            elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newY == 7:
-                Chess.pawnUpgrade(self, newX, newY)
+            obj = self.array[newPosName]
+            if obj is not None and obj.name == "Pawn" and obj.color == "White" and newPosName[0] == "8":
+                self.pawnUpgrade(newPosName)
+            elif obj is not None and obj.name == "Pawn" and obj.color == "Black" and newPosName[0] == "1":
+                self.pawnUpgrade(newPosName)
 
         # Next Turn
         if self.turn.gameover != True:
@@ -497,20 +550,20 @@ class Chess:
             return False
 
         # Rollback for pawn upgrade
-        if mov.x == mov.newX and mov.y == mov.newY:
-            self.array[mov.newY][mov.newX].name = "Pawn"
+        if mov.posName == mov.newPosName:
+            self.array[mov.newPosName].name = "Pawn"
             print(f"Pawn Upgrade Rollback")
             return True
         elif mov.newObj == None:
-            print(f"Set {mov.newX}, {mov.newY} : Empty")
-            self.array[mov.newY][mov.newX] = None
+            print(f"Set {mov.newPosName} : Empty")
+            self.array[mov.newPosName] = None
         else:
-            print(f"Set {mov.newX}, {mov.newY} : {mov.newObj.getFullName()}")
-            self.array[mov.newY][mov.newX] = mov.newObj
+            print(f"Set {mov.newPosName} : {mov.newObj.getFullName()}")
+            self.array[mov.newPosName] = mov.newObj
 
-        print(f"Set {mov.x}, {mov.y} : {mov.obj.getFullName()}")
-        self.array[mov.y][mov.x] = mov.obj
-        self.array[mov.y][mov.x].move_cnt -= 1
+        print(f"Set {mov.posName} : {mov.obj.getFullName()}")
+        self.array[mov.posName] = mov.obj
+        self.array[mov.posName].move_cnt -= 1
 
         self.turn.setTurnName(mov.obj.getColor())
         self.turn.gameover = False
@@ -518,27 +571,42 @@ class Chess:
         if mov.subSeq == 2:
             return True
 
-    array_org = [
-        [ 'BlackRook',  'BlackKnight',  'BlackBishop',  'BlackQueen',   'BlackKing',    'BlackBishop',  'BlackKnight',  'BlackRook' ],
-        [ 'BlackPawn',  'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn',    'BlackPawn' ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'Empty',      'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty',        'Empty'     ],
-        [ 'WhitePawn',  'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn',    'WhitePawn' ],
-        [ 'WhiteRook',  'WhiteKnight',  'WhiteBishop',  'WhiteQueen',   'WhiteKing',    'WhiteBishop',  'WhiteKnight',  'WhiteRook' ]
-    ]
+    array_org = {
+        "8A" : 'BlackRook',
+        "8B" : 'BlackKnight',
+        "8C" : 'BlackBishop',
+        "8D" : 'BlackQueen',
+        "8E" : 'BlackKing',
+        "8F" : 'BlackBishop',
+        "8G" : 'BlackKnight',
+        "8H" : 'BlackRook',
+        "7A" : 'BlackPawn',
+        "7B" : 'BlackPawn',
+        "7C" : 'BlackPawn',
+        "7D" : 'BlackPawn',
+        "7E" : 'BlackPawn',
+        "7F" : 'BlackPawn',
+        "7G" : 'BlackPawn',
+        "7H" : 'BlackPawn',
+        "2A" : 'WhitePawn',
+        "2B" : 'WhitePawn',
+        "2C" : 'WhitePawn',
+        "2D" : 'WhitePawn',
+        "2E" : 'WhitePawn',
+        "2F" : 'WhitePawn',
+        "2G" : 'WhitePawn',
+        "2H" : 'WhitePawn',
+        "1A" : 'WhiteRook',
+        "1B" : 'WhiteKnight',
+        "1C" : 'WhiteBishop',
+        "1D" : 'WhiteQueen',
+        "1E" : 'WhiteKing',
+        "1F" : 'WhiteBishop',
+        "1G" : 'WhiteKnight',
+        "1H" : 'WhiteRook'
+    }
 
-    array = [
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ],
-        [ None, None, None, None, None, None, None, None ]
-    ]
+    array = {}
 
     turn = Turn()
 
@@ -547,8 +615,8 @@ class Chess:
 
     history = History()
 
-    cursor = Cursor()
-    selector = Selector()
+    cursor = Cursor("1A")
+    selector = Selector("")
 
 class ChessUser:
     def __init__(self, color, chess):
@@ -576,10 +644,9 @@ class ChessAI(ChessUser):
     
     def getMoveable(self, selectable):
         print(f"selectables {selectable}")
-        for select in selectable:
+        for posName in selectable:
             #print(f"Sel {select}")
-            x, y = Chess.getXY(select)
-            Chess.checkAvailable(self.chess, x, y)
+            Chess.checkAvailable(self.chess, posName)
 
         return self.board.moveables
 

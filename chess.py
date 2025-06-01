@@ -386,30 +386,27 @@ class Chess:
                 self.addAvailable(posName, "8C")        
 
     def checkAvailable_Pawn(self, posName):
-        print(f"Check Pawn Available {posName}")
         y_offset = -1
         y_org_pos = "7"
         obj = self.getObject(posName)
-        print(f"Obj Color : {obj.color}")
         if( obj.color == "White" ):
             y_offset = 1
             y_org_pos = "2"
 
         pos = Position(posName)
         newPosName = pos.getDeltaPosName(0, y_offset)
-        print(f"New Pos Name {newPosName}")
         if self.isEmpty(newPosName):
             self.addAvailable(posName, newPosName)
-            print(f"New Pos Name {newPosName}")
+
             newPosName = pos.getDeltaPosName(0, y_offset * 2)
             if posName[0] == y_org_pos and self.isEmpty(newPosName):
                 self.addAvailable(posName, newPosName)
+
         newPosName = pos.getDeltaPosName(1, y_offset)
-        print(f"New Pos Name {newPosName}")
         if self.isEnermy(newPosName):
             self.addAvailable(posName, newPosName)
+
         newPosName = pos.getDeltaPosName(-1, y_offset)
-        print(f"New Pos Name {newPosName}")
         if self.isEnermy(newPosName):
             self.addAvailable(posName, newPosName)
 
@@ -447,6 +444,7 @@ class Chess:
     def cancelselected(self):
         self.selector.cancel()
         self.availables.clear()
+        print(f"Availables Clear")
 
     def clicked(self, posName):
         if self.turn.gameover == True:
@@ -470,6 +468,7 @@ class Chess:
         for pt in self.availables.get():
             if pt == posName:
                 self.moveTo(self.selector.posName, posName)
+                self.moveables.clear()
                 break
 
         # Cancel selected
@@ -631,14 +630,13 @@ class ChessUser:
 class ChessAI(ChessUser):
     def getSelectable(self):
         selectable = []
-        for x in range(8):
-            for y in range(8):
-                posName = Chess.getPosName(Chess, x, y)
-                obj = self.board.array[y][x]
-                if obj == None:
-                    continue
-                elif obj.color == self.board.turn.getThisTurnName():
-                    selectable.append(posName)
+        posNames = self.chess.cursor.getAllPosNames()
+        for posName in posNames:
+            obj = self.chess.array[posName]
+            if obj == None:
+                continue
+            elif obj.color == self.chess.turn.getThisTurnName():
+                selectable.append(posName)
 
         return selectable
     
@@ -648,14 +646,14 @@ class ChessAI(ChessUser):
             #print(f"Sel {select}")
             Chess.checkAvailable(self.chess, posName)
 
-        return self.board.moveables
+        return self.chess.moveables
 
     def getRandomMove(self):
         print(f"Random Move")
-        self.board.moveables.clear()
+        self.chess.moveables.clear()
         selectable = ChessAI.getSelectable(self)
         moveables = ChessAI.getMoveable(self, selectable)
-        for mov in self.board.moveables:
+        for mov in self.chess.moveables:
             mov.print()
 
         import random
@@ -670,35 +668,29 @@ class ChessAI(ChessUser):
         max_score = 0
         max_move = None
 
-        moveables_old = self.board.moveables
-        self.board.moveables.clear()
-
-        selectable = ChessAI.getSelectable(self)
-        moveables = ChessAI.getMoveable(self, selectable)
+        selectable = self.getSelectable()
+        moveables = self.getMoveable(selectable)
         for mov in moveables:
             if mov.score > max_score:
                 print(f"Set Max Score")
                 mov.print()
                 max_score = mov.score
                 max_move = mov
-            Chess.moveTo(self.chess, mov.x, mov.y, mov.newX, mov.newY)
+            self.chess.moveTo(mov.posName, mov.newPosName)
             self.chess.history.print()
-            mov = ChessAI.getBestMove_Recursive(self, cnt - 1)
-            Chess.rollback(self.board)
+            mov = self.getBestMove_Recursive(cnt - 1)
+            self.chess.rollback()
             self.chess.history.print()
-
-        self.board.moveables = moveables_old
 
         return max_move
 
     def getBestMove(self):
         print(f"Do Best Move")
-        import copy
-        self.board = copy.deepcopy(self.chess)
-        max_move = ChessAI.getBestMove_Recursive(self, 1)
+        max_move = self.getBestMove_Recursive(1)
 
         if max_move == None:
-            max_move = ChessAI.getRandomMove(self)
+            print(f"Do Best Move Result None")
+            max_move = self.getRandomMove()
         else:
             max_move.print()
 

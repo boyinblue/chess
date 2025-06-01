@@ -63,8 +63,9 @@ if __name__ == "__main__":
     ##################################################
     # AI Instance
     ##################################################
-    #black = ChessAI("Black", myChess)
-    #white = None
+    if myChess.turn.comm_type == "alone":
+        black = ChessAI("Black", myChess)
+        white = None
 
     ##################################################
     # View Instance
@@ -105,13 +106,17 @@ if __name__ == "__main__":
                     sock.close()
                 break
 
-#        if myChess.turn.getThisTurnName() == "White" and white != None:
-#            print(f"Get Best Move")
-#            mov = white.getBestMove()
-#            mov.print()
-#            myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
-#        elif myChess.turn.getThisTurnName() == "Black" and black != None:
-#            print(f"Get Best Move")
-#            mov = black.getBestMove()
-#            mov.print()
-#            myChess.moveTo( myChess, mov.x, mov.y, mov.newX, mov.newY)
+        if myChess.turn.getThisTurnName() == "White" and white != None:
+            print(f"Get Best Move For White")
+            mov = white.getBestMove()
+            mov.print()
+            myChess.moveTo(mov.posName, mov.newPosName)
+            myChess.availables.clear()
+            myView.draw()
+        elif myChess.turn.getThisTurnName() == "Black" and black != None:
+            print(f"Get Best Move For Black")
+            mov = black.getBestMove()
+            mov.print()
+            myChess.moveTo(mov.posName, mov.newPosName)
+            myChess.availables.clear()
+            myView.draw()

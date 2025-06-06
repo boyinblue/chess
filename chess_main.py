@@ -2,6 +2,10 @@ from chess import Chess, ChessAI
 from chess_view import ChessView
 from threading import Thread, Event
 import socket
+import sys
+
+fo = open("log.txt", "w")
+sys.stdout = fo
 
 comm_type = ""
 sock = None
@@ -48,15 +52,14 @@ if __name__ == "__main__":
     ##################################################
     if comm_type == "server":
         myChess = Chess("White")
-        myView = ChessView(myChess, False)
+        myView = ChessView(myChess, False, "Chess")
     elif comm_type == "client":
         myChess = Chess("Black")
-        myView = ChessView(myChess, True)
+        myView = ChessView(myChess, True, "Chess")
     else:
-        myChess = Chess("Black")
-        myView = ChessView(myChess, True)
-        #myChess = Chess("White")
-        #myView = ChessView(myChess, False)
+        myChess = Chess("White")
+        myView = ChessView(myChess, False, "Chess")
+
     myChess.turn.comm_type = comm_type
     #myChess.reset(myChess)
 
@@ -84,7 +87,7 @@ if __name__ == "__main__":
         if msg != None:
             print(msg)
             if msg[0] == "Clicked":
-                myChess.clicked(myChess, msg[1])
+                myChess.clicked(msg[1])
                 myView.draw()
             elif msg[0] == "Left":
                 myChess.cursor.changePosByDelta(-1, 0)
@@ -111,12 +114,11 @@ if __name__ == "__main__":
             mov = white.getBestMove()
             mov.print()
             myChess.moveTo(mov.posName, mov.newPosName)
-            myChess.availables.clear()
             myView.draw()
         elif myChess.turn.getThisTurnName() == "Black" and black != None:
             print(f"Get Best Move For Black")
             mov = black.getBestMove()
+            print(f"Best Move For Black")
             mov.print()
             myChess.moveTo(mov.posName, mov.newPosName)
-            myChess.availables.clear()
             myView.draw()

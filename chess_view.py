@@ -2,10 +2,11 @@ import cv2
 from chess import Chess, Position
 
 class ChessView:
-    def __init__(self, chess, invert):
+    def __init__(self, chess, invert, viewName):
         self.scale = 1.5
         self.chess = chess
         self.invert = invert
+        self.viewName = viewName
 
     def loadObjImages(self):
         for obj in self.objs:
@@ -59,10 +60,13 @@ class ChessView:
         cv2.rectangle(self.image, (ptX, ptY), (ptX2, ptY2), color, width)
 
     def draw_object(self, posName):
-        obj = self.chess.array[posName]
-        if obj == None:
+        if self.chess.array[posName] == None:
+            obj = None
             objName = "Empty"
         else:
+            obj = self.chess.array[posName]
+            if obj.pos.get() != posName:
+                print(f"Pos Name Invalid!!! {posName} != {obj.pos.get()}")
             objName = obj.getFullName()
 
         #print(f"{self.image.shape}")
@@ -77,14 +81,18 @@ class ChessView:
         posName = self.getPosName(x, y, self.invert)
         self.posCoordinator.append([ptX, ptY, ptX2, ptY2, posName])
 
-        if self.chess.availables.isAvaiable(posName):
-            self.draw_border(x, y, (0, 255, 0), 6)
-        elif self.chess.selector.posName == posName:
-            self.draw_border(x, y, (0, 0, 0), 6)
+        # Selected
+        avails = self.chess.getAvails()
+        if avails != None:
+            if avails.isAvaiable(posName):
+                self.draw_border(x, y, (0, 255, 0), 6)
+            # Draw Selector As Thick Black
+            elif self.chess.selector.posName == posName:
+                self.draw_border(x, y, (0, 0, 0), 6)
         
         if posName != self.chess.cursor.posName:
             self.draw_border(x, y, (0, 0, 0), 1)
-        elif self.chess.availables.isAvaiable(posName):
+        elif avails != None and avails.isAvaiable(posName):
             self.draw_border(x, y, (255, 0, 0), 3)
         elif obj != None and obj.getColor() == self.chess.turn.getThisTurnName():
             self.draw_border(x, y, (255, 0, 0), 3)
@@ -139,6 +147,9 @@ class ChessView:
         cv2.putText(self.image, "ESC : Exit", [ int(500 * self.scale), 150 ], 1, 1, (0, 0, 0), 2)
         cv2.putText(self.image, "R : Reset", [ int(500 * self.scale), 175 ], 1, 1, (0, 0, 0), 2)
         cv2.putText(self.image, "b : Rollback", [ int(500 * self.scale), 200 ], 1, 1, (0, 0, 0), 2)
+        #for his in self.chess.history.arrHistory:
+        #    print(f"History : {his}")
+        #    his.print()
 
         if self.chess.turn.gameover:
             cv2.putText(self.image, "GAME OVER!", [ int(500 * self.scale), 225 ], 1, 1, (0, 0, 255), 2)
@@ -153,8 +164,8 @@ class ChessView:
     def draw(self):
         image_org = cv2.imread('img/background.png')
         self.image = cv2.resize(image_org, (int(image_org.shape[1] * self.scale), int(image_org.shape[0] * self.scale)))
-        cv2.imshow(f"Chess {self.chess.turn.color}", self.image)
-        cv2.setMouseCallback(f"Chess {self.chess.turn.color}", self.mouse_event, self.image)
+        cv2.imshow(f"{self.viewName} {self.chess.turn.color}", self.image)
+        cv2.setMouseCallback(f"{self.viewName} {self.chess.turn.color}", self.mouse_event, self.image)
         #print(f"Image Size({image.shape[1]} x {image.shape[0]} x {image.shape[2]})")
         self.loadObjImages()
 
@@ -170,7 +181,7 @@ class ChessView:
         #self.draw_selected()
         self.draw_info()
 
-        cv2.imshow(f"Chess {self.chess.turn.color}", self.image)
+        cv2.imshow(f"{self.viewName} {self.chess.turn.color}", self.image)
 
     def scale_up(self):
         self.scale += 0.1
@@ -255,6 +266,7 @@ class ChessView:
     obj_height = 0
     scale = 1
     invert = False
+    viewName = "Chess"
 
     msg = []
     posCoordinator = []

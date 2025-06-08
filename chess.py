@@ -150,6 +150,12 @@ class Object:
             return 1
         else:
             assert()
+
+    def getScoreByColor(self, color):
+        score = self.getScore()
+        if self.color == color:
+            return -1 * score
+        return score
             
     name = ""
     color = ""
@@ -220,13 +226,15 @@ class Movement:
         if self.newObj == None:
             return
         self.score = self.newObj.getScore()
+        self.max_score = -10
+        self.min_score = 10
 
     def print(self):
         objName = self.obj.getFullName()
         newObjName = "Empty"
         if self.newObj != None:
             newObjName = self.newObj.getFullName()
-        print(f"Movement : {self.posName} {objName} {self.newPosName} {newObjName} (Sub Seq : {self.subSeq}) (score : {self.score})")
+        print(f"Movement : {self.posName} {objName} {self.newPosName} {newObjName} (Sub Seq : {self.subSeq}) (score : {self.score}, {self.min_score}, {self.max_score}) [{self}]")
 
     posName = ""
     obj = None
@@ -234,6 +242,8 @@ class Movement:
     newObj = None
     subSeq = 0
     score = 0
+    max_score = 0
+    min_score = 0
 
 # Movement History Class
 class History:
@@ -509,7 +519,7 @@ class Chess:
         else:
             newObjName = "Empty"
 
-        #print(f"====> Move [{posName}] {objName} => [{newPosName}] {newObjName}")
+        print(f"====> Move [{posName}] {objName} => [{newPosName}] {newObjName}")
 
         # Move Count
         self.array[posName].move_cnt += 1
@@ -592,7 +602,7 @@ class Chess:
             mov.newObj.pos.set(mov.newPosName)
             newObjName = mov.newObj.name
 
-        #print(f"<==== Rollback [{mov.posName}] {mov.obj.getFullName()} <= [{mov.newPosName}] {newObjName}")
+        print(f"<==== Rollback [{mov.posName}] {mov.obj.getFullName()} <= [{mov.newPosName}] {newObjName}")
         self.array[mov.posName] = mov.obj
         self.array[mov.posName].move_cnt -= 1
         self.array[mov.posName].pos.set(mov.posName)
@@ -603,14 +613,13 @@ class Chess:
         if mov.subSeq == 2:
             return True
         
-    array_org2 = {
+    array_org = {
         "4A" : 'BlackPawn',
-        "6C" : 'BlackPawn',
-        "3H" : 'WhitePawn',
-        "3B" : 'WhitePawn',
+        "5C" : 'BlackPawn',
+        "2A" : 'WhiteKnight',
     }
 
-    array_org = {
+    array_org2 = {
         "8A" : 'BlackRook',
         "8B" : 'BlackKnight',
         "8C" : 'BlackBishop',
@@ -704,11 +713,11 @@ class ChessAI(ChessUser):
 
         return moveables
 
-    def getBestMove_Recursive(self, chess, moveArr, cnt):
+    def getBestMove_Recursive(self, chess, turn, moveArr, cnt):
+        print(f"Calc {cnt}")
         if cnt == 0:
-            #print(f"Calc {self.calc_cnt} (score : {score})")
             self.arrResult.append(moveArr)
-            return
+            return 0, 0
         #print(f"Get Best Move For {color} : Level-{cnt}")
 
         # Get Selectable
@@ -717,15 +726,44 @@ class ChessAI(ChessUser):
         # Get Moveable
         moveables = self.getMoveable(chess, selectables)
 
+        final_min = 100
+        final_max = -100
+
         for mov in moveables:
             import copy
             newMove = copy.deepcopy(moveArr)
 
+            if mov.newObj != None:
+                mov.score = mov.newObj.getScoreByColor(turn)
+
             newMove.append(mov)
             chess.moveTo(mov.posName, mov.newPosName)
-            self.getBestMove_Recursive(chess, newMove, cnt - 1)
+            min,max = self.getBestMove_Recursive(chess, turn, newMove, cnt - 1)
             if chess.rollback():
                 chess.rollback()
+
+            min += mov.score
+            max += mov.score
+            if min < final_min:
+                print(f"Update Min {final_min} => {min}")
+                final_min = min
+            if max > final_max:
+                print(f"Update Max {final_max} => {max}")
+                final_max = max
+            if mov.min_score > final_min:
+                mov.min_score = final_min
+            if mov.max_score < final_max:
+                mov.max_score = final_max
+            print(f"Min : {min}, Max : {max} / Final Min : {final_min}, Final Max : {final_max}")
+            for i in range(cnt):
+                print(" ", end="")
+            mov.print()
+
+        for mov in moveables:
+            mov.min_score = final_min
+            mov.max_score = final_max
+
+        return final_min, final_max
 
     def getBestMove(self):
         import chess_view
@@ -739,35 +777,45 @@ class ChessAI(ChessUser):
         self.arrResult.clear()
 
         print(f"Check Move Score")
-        self.getBestMove_Recursive(chess, [], 2)
-
+        min, max = self.getBestMove_Recursive(chess, turn, [], 2)
+        
         chess_view.draw()
 
-        max_score = 0
-        max_move = None
+        best_score = 0
+        best_move = None
         weight = 1
         for result in self.arrResult:
             score = 0
+            total_score = 0
+
+            print(f"Dump")
             for move in result:
                 if move.newObj != None:
                     if move.newObj.color == turn:
                         score -= ( move.newObj.score * weight )
                     else:
                         score += ( move.newObj.score * weight )
+                    if score < move.min_score:
+                        move.min_score = score
+                    if score > move.max_score:
+                        move.max_score = score
+                    total_score += (move.max_score + move.min_score)
                 import random
 
-                score += (random.randint(1,10) / 20)
+                #score += (random.randint(1,10) / 100)
                 #weight /= 2
-            
-            if score >= max_score:
-                print(f"Update max score : {score}")
-                max_score = score
-                max_move = result
 
-        print(f"Best Move (score : {max_score}), {len(self.arrResult)} cases")
-        for mov in max_move:
+                move.print()
+            
+            if total_score >= best_score:
+                #print(f"Update best score : {score}")
+                best_score = score
+                best_move = result
+
+        print(f"Best Move (score : {best_score}), {len(self.arrResult)} cases")
+        for mov in best_move:
             mov.print()
 
-        return max_move[0]
+        return best_move[0]
     
     arrResult = []

@@ -1,4 +1,5 @@
 # Define Classes For Chess
+import json
 
 class Position:
     def __init__(self, posName):
@@ -285,12 +286,16 @@ class Chess:
         self.history = History()
         self.cursor = Cursor("1A")
         self.array = {}
+        self.stateHistory = []
+        self.stateCounts = {}
         self.reset(self)
 
     def reset(self, bug = False):
         self.turn.reset()
         self.history.reset()
         self.cursor.reset()
+        self.stateHistory = []
+        self.stateCounts = {}
 
         posNames = self.cursor.getAllPosNames()
         for posName in posNames:
@@ -301,6 +306,55 @@ class Chess:
             else:
                 self.array[posName] = None
             #print(f"Generate Object posName : {objName}")
+        self.recordCurrentState()
+
+    def getBoardStateKey(self):
+        castling = []
+        wk = self.array.get("1E")
+        wr_a = self.array.get("1A")
+        wr_h = self.array.get("1H")
+        bk = self.array.get("8E")
+        br_a = self.array.get("8A")
+        br_h = self.array.get("8H")
+
+        if wk is not None and wk.name == "King" and wk.color == "White" and wk.move_cnt == 0:
+            if wr_h is not None and wr_h.name == "Rook" and wr_h.color == "White" and wr_h.move_cnt == 0:
+                castling.append("K")
+            if wr_a is not None and wr_a.name == "Rook" and wr_a.color == "White" and wr_a.move_cnt == 0:
+                castling.append("Q")
+        if bk is not None and bk.name == "King" and bk.color == "Black" and bk.move_cnt == 0:
+            if br_h is not None and br_h.name == "Rook" and br_h.color == "Black" and br_h.move_cnt == 0:
+                castling.append("k")
+            if br_a is not None and br_a.name == "Rook" and br_a.color == "Black" and br_a.move_cnt == 0:
+                castling.append("q")
+
+        items = []
+        for posName in self.cursor.getAllPosNames():
+            obj = self.array[posName]
+            if obj is None:
+                continue
+            items.append(f"{posName}:{obj.color[0]}{obj.name}")
+        rights = "".join(castling) if len(castling) > 0 else "-"
+        return f"{self.turn.getThisTurnName()}|{rights}|" + "|".join(items)
+
+    def recordCurrentState(self):
+        key = self.getBoardStateKey()
+        self.stateHistory.append(key)
+        self.stateCounts[key] = self.stateCounts.get(key, 0) + 1
+
+    def rollbackCurrentState(self):
+        if len(self.stateHistory) == 0:
+            return
+        key = self.stateHistory.pop()
+        count = self.stateCounts.get(key, 0)
+        if count <= 1:
+            self.stateCounts.pop(key, None)
+        else:
+            self.stateCounts[key] = count - 1
+
+    def getCurrentStateRepeatCount(self):
+        key = self.getBoardStateKey()
+        return self.stateCounts.get(key, 0)
 
     # Dump
     def print(self):
@@ -367,6 +421,258 @@ class Chess:
         if obj == None:
             return None
         return obj.avails
+
+    def getOpponentColor(self, color):
+        if color == "White":
+            return "Black"
+        return "White"
+
+    def _isAllyColor(self, posName, color):
+        obj = self.array.get(posName)
+        return obj is not None and obj.color == color
+
+    def _isEnemyColor(self, posName, color):
+        obj = self.array.get(posName)
+        return obj is not None and obj.color != color
+
+    def _collectSlidingMoves(self, posName, color, dirs):
+        moves = []
+        pos = Position(posName)
+        for d in dirs:
+            for i in range(1, 8):
+                nxt = pos.getDeltaPosName(d[0] * i, d[1] * i)
+                if nxt == "":
+                    break
+                if self._isAllyColor(nxt, color):
+                    break
+                moves.append(nxt)
+                if self._isEnemyColor(nxt, color):
+                    break
+        return moves
+
+    def _getPseudoMoves(self, posName, forAttack=False):
+        obj = self.array.get(posName)
+        if obj is None:
+            return []
+
+        color = obj.color
+        pos = Position(posName)
+        moves = []
+
+        if obj.name == "Pawn":
+            y_offset = 1 if color == "White" else -1
+            if forAttack:
+                for dx in [1, -1]:
+                    nxt = pos.getDeltaPosName(dx, y_offset)
+                    if nxt != "":
+                        moves.append(nxt)
+                return moves
+
+            one = pos.getDeltaPosName(0, y_offset)
+            if one != "" and self.array[one] is None:
+                moves.append(one)
+                org_row = "2" if color == "White" else "7"
+                two = pos.getDeltaPosName(0, y_offset * 2)
+                if posName[0] == org_row and two != "" and self.array[two] is None:
+                    moves.append(two)
+            for dx in [1, -1]:
+                cap = pos.getDeltaPosName(dx, y_offset)
+                if cap != "" and self._isEnemyColor(cap, color):
+                    moves.append(cap)
+            return moves
+
+        if obj.name == "Knight":
+            for d in obj.KnightDirs:
+                nxt = pos.getDeltaPosName(d[0], d[1])
+                if nxt != "" and not self._isAllyColor(nxt, color):
+                    moves.append(nxt)
+            return moves
+
+        if obj.name == "King":
+            for d in obj.EveryDirs:
+                nxt = pos.getDeltaPosName(d[0], d[1])
+                if nxt != "" and not self._isAllyColor(nxt, color):
+                    moves.append(nxt)
+
+            if not forAttack and obj.move_cnt == 0 and not self.isInCheck(color):
+                enemy = self.getOpponentColor(color)
+
+                # Kingside castling
+                rook_pos = f"{posName[0]}H"
+                rook = self.array.get(rook_pos)
+                if rook is not None and rook.name == "Rook" and rook.color == color and rook.move_cnt == 0:
+                    path1 = pos.getDeltaPosName(1, 0)
+                    path2 = pos.getDeltaPosName(2, 0)
+                    if path1 != "" and path2 != "" and self.array[path1] is None and self.array[path2] is None:
+                        if not self.isSquareAttacked(path1, enemy) and not self.isSquareAttacked(path2, enemy):
+                            moves.append(path2)
+
+                # Queenside castling
+                rook_pos = f"{posName[0]}A"
+                rook = self.array.get(rook_pos)
+                if rook is not None and rook.name == "Rook" and rook.color == color and rook.move_cnt == 0:
+                    path1 = pos.getDeltaPosName(-1, 0)
+                    path2 = pos.getDeltaPosName(-2, 0)
+                    path3 = pos.getDeltaPosName(-3, 0)
+                    if path1 != "" and path2 != "" and path3 != "" and self.array[path1] is None and self.array[path2] is None and self.array[path3] is None:
+                        if not self.isSquareAttacked(path1, enemy) and not self.isSquareAttacked(path2, enemy):
+                            moves.append(path2)
+            return moves
+
+        if obj.name == "Bishop":
+            return self._collectSlidingMoves(posName, color, obj.DiagonalDirs)
+        if obj.name == "Rook":
+            return self._collectSlidingMoves(posName, color, obj.RightAngleDirs)
+        if obj.name == "Queen":
+            return self._collectSlidingMoves(posName, color, obj.EveryDirs)
+
+        return moves
+
+    def findKingPos(self, color):
+        for posName in self.cursor.getAllPosNames():
+            obj = self.array[posName]
+            if obj is not None and obj.name == "King" and obj.color == color:
+                return posName
+        return ""
+
+    def isSquareAttacked(self, targetPosName, byColor):
+        for posName in self.cursor.getAllPosNames():
+            obj = self.array[posName]
+            if obj is None or obj.color != byColor:
+                continue
+            attacks = self._getPseudoMoves(posName, forAttack=True)
+            for atk in attacks:
+                if atk == targetPosName:
+                    return True
+        return False
+
+    def isInCheck(self, color):
+        kingPos = self.findKingPos(color)
+        if kingPos == "":
+            return True
+        return self.isSquareAttacked(kingPos, self.getOpponentColor(color))
+
+    def _isMoveLegal(self, posName, newPosName):
+        obj = self.array.get(posName)
+        if obj is None:
+            return False
+
+        captured = self.array.get(newPosName)
+        if captured is not None and captured.name == "King":
+            return False
+
+        orig_pos = obj.pos.get()
+        orig_move_cnt = obj.move_cnt
+
+        rook_state = None
+        if obj.name == "King" and posName[1] == "E" and (newPosName[1] == "G" or newPosName[1] == "C"):
+            if newPosName[1] == "G":
+                rook_from = Position(posName).getDeltaPosName(3, 0)
+                rook_to = Position(posName).getDeltaPosName(1, 0)
+            else:
+                rook_from = Position(posName).getDeltaPosName(-4, 0)
+                rook_to = Position(posName).getDeltaPosName(-2, 0)
+
+            rook = self.array.get(rook_from)
+            if rook is None:
+                return False
+            rook_state = (rook, rook_from, rook_to, rook.pos.get(), rook.move_cnt)
+            self.array[rook_to] = rook
+            self.array[rook_from] = None
+            rook.pos.set(rook_to)
+            rook.move_cnt += 1
+
+        self.array[newPosName] = obj
+        self.array[posName] = None
+        obj.pos.set(newPosName)
+        obj.move_cnt += 1
+
+        legal = not self.isInCheck(obj.color)
+
+        self.array[posName] = obj
+        self.array[newPosName] = captured
+        obj.pos.set(orig_pos)
+        obj.move_cnt = orig_move_cnt
+
+        if rook_state is not None:
+            rook, rook_from, rook_to, rook_orig_pos, rook_orig_cnt = rook_state
+            self.array[rook_from] = rook
+            self.array[rook_to] = None
+            rook.pos.set(rook_orig_pos)
+            rook.move_cnt = rook_orig_cnt
+
+        return legal
+
+    def getLegalMoves(self, posName):
+        obj = self.array.get(posName)
+        if obj is None:
+            return []
+
+        pseudo = self._getPseudoMoves(posName, forAttack=False)
+        legal = []
+        for nxt in pseudo:
+            if self._isMoveLegal(posName, nxt):
+                legal.append(nxt)
+        return legal
+
+    def getLegalMovesForColor(self, color):
+        moves = []
+        for posName in self.cursor.getAllPosNames():
+            obj = self.array[posName]
+            if obj is None or obj.color != color:
+                continue
+            for nxt in self.getLegalMoves(posName):
+                moves.append((posName, nxt))
+        return moves
+
+    def updateGameStatus(self):
+        color_to_move = self.turn.getThisTurnName()
+        if self.getCurrentStateRepeatCount() >= 3:
+            self.turn.gameover = True
+            self.turn.winner = "Draw"
+            return
+
+        legal = self.getLegalMovesForColor(color_to_move)
+        if len(legal) == 0:
+            self.turn.gameover = True
+            if self.isInCheck(color_to_move):
+                self.turn.winner = self.getOpponentColor(color_to_move)
+            else:
+                self.turn.winner = "Draw"
+            return
+
+        self.turn.gameover = False
+        self.turn.winner = ""
+
+    def saveRecord(self, filePath="game_record.json"):
+        moves = []
+        for mov in self.history.arrHistory:
+            if mov.subSeq != 0:
+                continue
+            if mov.posName == mov.newPosName:
+                continue
+            moves.append({"from": mov.posName, "to": mov.newPosName})
+
+        payload = {
+            "version": 1,
+            "comm_type": self.turn.comm_type,
+            "winner": self.turn.winner,
+            "gameover": self.turn.gameover,
+            "moves": moves,
+        }
+
+        with open(filePath, "w", encoding="utf-8") as fp:
+            json.dump(payload, fp, ensure_ascii=True, indent=2)
+
+        return len(moves)
+
+    def loadRecord(self, filePath="game_record.json"):
+        with open(filePath, "r", encoding="utf-8") as fp:
+            payload = json.load(fp)
+
+        if "moves" not in payload or type(payload["moves"]) != list:
+            return []
+        return payload["moves"]
     
     # Check Movement functions
     def checkUnitAvailable(self, obj, newPos):
@@ -438,28 +744,13 @@ class Chess:
 
     def checkAvailable(self, posName):
         obj = self.array[posName]
-        objName = obj.name
         if obj.avails == None:
             obj.avails = Available()
         else:
             obj.avails.clear()
 
-        #print(self.turn)
-        #print(f"Check available {posName}, objName={objName}, objColor={obj.color}, turn={self.turn.getThisTurnName()}")
-
-        if objName == "King":
-            self.checkAvailableByDirList(obj, obj.EveryDirs, 1)
-            self.checkCastling(obj)
-        elif objName == "Queen":
-            self.checkAvailableByDirList(obj, obj.EveryDirs, 7)
-        elif objName == "Bishop":
-            self.checkAvailableByDirList(obj, obj.DiagonalDirs, 7)
-        elif objName == "Rook":
-            self.checkAvailableByDirList(obj, obj.RightAngleDirs, 7)
-        elif objName == "Knight":
-            self.checkAvailableByDirList(obj, obj.KnightDirs, 1)
-        elif objName == "Pawn":
-            self.checkAvailable_Pawn(obj)
+        for legalPos in self.getLegalMoves(posName):
+            obj.avails.add(legalPos)
 
     # Mouse Event
     def selectObject(self, posName):
@@ -526,12 +817,6 @@ class Chess:
             objNew = None
         self.history.append(posName, self.array[posName], newPosName, objNew, subSeq)
 
-        # Check Game Over
-        obj = self.array[newPosName]
-        if obj is not None and obj.name == "King":
-            self.turn.gameover = True
-            self.turn.winner = self.turn.getThisTurnName()
-
         # Make movement
         self.array[newPosName] = self.array[posName]
         self.array[newPosName].pos.set(newPosName)
@@ -575,12 +860,16 @@ class Chess:
         # Next Turn
         if self.turn.gameover != True:
             self.turn.nextTurn()
+            self.recordCurrentState()
+            self.updateGameStatus()
 
     def rollback(self):
         mov = self.history.rollback()
         if mov == None:
             print(f"Nothing in history")
             return False
+
+        self.rollbackCurrentState()
 
         # Rollback for pawn upgrade
         if mov.posName == mov.newPosName:
@@ -603,7 +892,7 @@ class Chess:
         self.array[mov.posName].pos.set(mov.posName)
 
         self.turn.setTurnName(mov.obj.getColor())
-        self.turn.gameover = False
+        self.updateGameStatus()
 
         if mov.subSeq == 2:
             return True
@@ -820,6 +1109,22 @@ class ChessAI(ChessUser):
             newBoard.array[posName] = Object(obj.name, obj.color, posName, obj.move_cnt)
         newBoard.turn.color = self.chess.turn.color
         newBoard.turn.turn = self.chess.turn.turn
+        newBoard.stateHistory = list(self.chess.stateHistory)
+        newBoard.stateCounts = dict(self.chess.stateCounts)
+
+    def _getRepeatPenalty(self, chess, mov):
+        penalty = 0
+
+        repeat_count = chess.getCurrentStateRepeatCount()
+        if repeat_count >= 2:
+            penalty += 80 * (repeat_count - 1)
+
+        if len(self.chess.history.arrHistory) > 0:
+            last = self.chess.history.arrHistory[-1]
+            if last.subSeq == 0 and mov.posName == last.newPosName and mov.newPosName == last.posName:
+                penalty += 120
+
+        return penalty
 
     def getSelectable(self, chess):
         selectable = []
@@ -904,6 +1209,7 @@ class ChessAI(ChessUser):
         for mov in moveables:
             chess.moveTo(mov.posName, mov.newPosName)
             score = self.minimax(chess, self.DEPTH - 1, -999999, 999999, False)
+            score -= self._getRepeatPenalty(chess, mov)
             if chess.rollback():
                 chess.rollback()
             # Tiny random tiebreaker so identical-score moves vary

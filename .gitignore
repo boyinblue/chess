@@ -2,3 +2,6 @@ dist
 build
 __pycache__
 chess_main.spec
+log.txt
+tmp_record.json
+game_record.json

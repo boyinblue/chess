@@ -98,25 +98,19 @@ class Selector(Position):
 # Available Class
 class Available:
     def __init__(self):
-        self.avail.clear()
+        self.avail = set()  # instance-level set (was class-level — shared bug fixed)
 
     def get(self):
         return self.avail
     
     def add(self, posName):
-        #print(f"Add Avail {posName}")
         self.avail.add(posName)
 
     def isAvaiable(self, posName):
-        for pos in self.avail:
-            if pos == posName:
-                return True
-        return False
+        return posName in self.avail
 
     def clear(self):
         self.avail.clear()
-
-    avail = set()
 
 # Chess Object Class
 class Object:
@@ -247,6 +241,10 @@ class Movement:
 
 # Movement History Class
 class History:
+    def __init__(self):
+        self.arrHistory = []
+        self.arrKilled = []
+
     def reset(self):
         self.arrHistory.clear()
         self.arrKilled.clear()
@@ -276,9 +274,6 @@ class History:
         print(f"Dump History")
         for mov in self.arrHistory:
             mov.print()
-
-    arrHistory = []
-    arrKilled = []
 
 # Check Class
 class Chess:
@@ -614,9 +609,38 @@ class Chess:
             return True
         
     array_org = {
-        "4A" : 'BlackPawn',
-        "5C" : 'BlackPawn',
-        "2A" : 'WhiteKnight',
+        "8A" : 'BlackRook',
+        "8B" : 'BlackKnight',
+        "8C" : 'BlackBishop',
+        "8D" : 'BlackQueen',
+        "8E" : 'BlackKing',
+        "8F" : 'BlackBishop',
+        "8G" : 'BlackKnight',
+        "8H" : 'BlackRook',
+        "7A" : 'BlackPawn',
+        "7B" : 'BlackPawn',
+        "7C" : 'BlackPawn',
+        "7D" : 'BlackPawn',
+        "7E" : 'BlackPawn',
+        "7F" : 'BlackPawn',
+        "7G" : 'BlackPawn',
+        "7H" : 'BlackPawn',
+        "2A" : 'WhitePawn',
+        "2B" : 'WhitePawn',
+        "2C" : 'WhitePawn',
+        "2D" : 'WhitePawn',
+        "2E" : 'WhitePawn',
+        "2F" : 'WhitePawn',
+        "2G" : 'WhitePawn',
+        "2H" : 'WhitePawn',
+        "1A" : 'WhiteRook',
+        "1B" : 'WhiteKnight',
+        "1C" : 'WhiteBishop',
+        "1D" : 'WhiteQueen',
+        "1E" : 'WhiteKing',
+        "1F" : 'WhiteBishop',
+        "1G" : 'WhiteKnight',
+        "1H" : 'WhiteRook'
     }
 
     array_org2 = {
@@ -671,151 +695,224 @@ class ChessUser:
 #class ChessHuman(ChessUser):
 
 class ChessAI(ChessUser):
+    # Search depth (half-moves / plies). 2 = fast (~instant), 3 = stronger but slower.
+    DEPTH = 2
+
+    # Piece values in centipawns
+    PIECE_VALUES = {
+        "King": 20000,
+        "Queen": 900,
+        "Rook": 500,
+        "Bishop": 330,
+        "Knight": 320,
+        "Pawn": 100,
+    }
+
+    # Piece-Square Tables: indexed [row_idx][col_idx]
+    # row_idx 0 = row "8" (top of board), row_idx 7 = row "1" (bottom)
+    # col_idx 0 = col "A" (left), col_idx 7 = col "H" (right)
+    # Tables are from White's perspective; Black's table is mirrored vertically.
+    PAWN_PST = [
+        [  0,  0,  0,  0,  0,  0,  0,  0],
+        [ 50, 50, 50, 50, 50, 50, 50, 50],
+        [ 10, 10, 20, 30, 30, 20, 10, 10],
+        [  5,  5, 10, 25, 25, 10,  5,  5],
+        [  0,  0,  0, 20, 20,  0,  0,  0],
+        [  5, -5,-10,  0,  0,-10, -5,  5],
+        [  5, 10, 10,-20,-20, 10, 10,  5],
+        [  0,  0,  0,  0,  0,  0,  0,  0],
+    ]
+    KNIGHT_PST = [
+        [-50,-40,-30,-30,-30,-30,-40,-50],
+        [-40,-20,  0,  0,  0,  0,-20,-40],
+        [-30,  0, 10, 15, 15, 10,  0,-30],
+        [-30,  5, 15, 20, 20, 15,  5,-30],
+        [-30,  0, 15, 20, 20, 15,  0,-30],
+        [-30,  5, 10, 15, 15, 10,  5,-30],
+        [-40,-20,  0,  5,  5,  0,-20,-40],
+        [-50,-40,-30,-30,-30,-30,-40,-50],
+    ]
+    BISHOP_PST = [
+        [-20,-10,-10,-10,-10,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5, 10, 10,  5,  0,-10],
+        [-10,  5,  5, 10, 10,  5,  5,-10],
+        [-10,  0, 10, 10, 10, 10,  0,-10],
+        [-10, 10, 10, 10, 10, 10, 10,-10],
+        [-10,  5,  0,  0,  0,  0,  5,-10],
+        [-20,-10,-10,-10,-10,-10,-10,-20],
+    ]
+    ROOK_PST = [
+        [  0,  0,  0,  0,  0,  0,  0,  0],
+        [  5, 10, 10, 10, 10, 10, 10,  5],
+        [ -5,  0,  0,  0,  0,  0,  0, -5],
+        [ -5,  0,  0,  0,  0,  0,  0, -5],
+        [ -5,  0,  0,  0,  0,  0,  0, -5],
+        [ -5,  0,  0,  0,  0,  0,  0, -5],
+        [ -5,  0,  0,  0,  0,  0,  0, -5],
+        [  0,  0,  0,  5,  5,  0,  0,  0],
+    ]
+    QUEEN_PST = [
+        [-20,-10,-10, -5, -5,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5,  5,  5,  5,  0,-10],
+        [ -5,  0,  5,  5,  5,  5,  0, -5],
+        [  0,  0,  5,  5,  5,  5,  0, -5],
+        [-10,  5,  5,  5,  5,  5,  0,-10],
+        [-10,  0,  5,  0,  0,  0,  0,-10],
+        [-20,-10,-10, -5, -5,-10,-10,-20],
+    ]
+    KING_PST = [
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-20,-30,-30,-40,-40,-30,-30,-20],
+        [-10,-20,-20,-20,-20,-20,-20,-10],
+        [ 20, 20,  0,  0,  0,  0, 20, 20],
+        [ 20, 30, 10,  0,  0, 10, 30, 20],
+    ]
+    PST_MAP = None  # built lazily
+
+    def _buildPSTMap(self):
+        self.PST_MAP = {
+            "Pawn":   self.PAWN_PST,
+            "Knight": self.KNIGHT_PST,
+            "Bishop": self.BISHOP_PST,
+            "Rook":   self.ROOK_PST,
+            "Queen":  self.QUEEN_PST,
+            "King":   self.KING_PST,
+        }
+
+    def _getPSTBonus(self, obj):
+        if self.PST_MAP is None:
+            self._buildPSTMap()
+        row_id = Position.Row2Id[obj.pos.get()[0]]  # 0=row8 … 7=row1
+        col_id = Position.Col2Id[obj.pos.get()[1]]  # 0=colA … 7=colH
+        # Black's table is mirrored so that "forward" means toward lower row numbers
+        if obj.color == "Black":
+            row_id = 7 - row_id
+        table = self.PST_MAP.get(obj.name)
+        if table is None:
+            return 0
+        return table[row_id][col_id]
+
+    def evaluateBoard(self, chess):
+        """Return centipawn score from this AI's perspective (positive = AI is winning)."""
+        score = 0
+        for posName in chess.cursor.getAllPosNames():
+            obj = chess.array[posName]
+            if obj is None:
+                continue
+            val = self.PIECE_VALUES.get(obj.name, 0) + self._getPSTBonus(obj)
+            if obj.color == self.color:
+                score += val
+            else:
+                score -= val
+        return score
+
     def copyBoard(self, newBoard):
         for posName in self.chess.cursor.getAllPosNames():
             obj = self.chess.getObject(posName)
-            if obj == None:
+            if obj is None:
                 newBoard.array[posName] = None
                 continue
             newBoard.array[posName] = Object(obj.name, obj.color, posName, obj.move_cnt)
-            #print(f"New Board {posName} {obj.name}")
-
-        print(f"Set Turn Color : {self.chess.turn.turn} from {self.chess.turn}")
         newBoard.turn.color = self.chess.turn.color
         newBoard.turn.turn = self.chess.turn.turn
 
     def getSelectable(self, chess):
-        #print(f"Get Selectable For {chess.turn.turn}")
         selectable = []
-        posNames = chess.cursor.getAllPosNames()
-        for posName in posNames:
+        for posName in chess.cursor.getAllPosNames():
             obj = chess.array[posName]
-            if obj == None:
-                continue
-            elif obj.color == chess.turn.turn:
+            if obj is not None and obj.color == chess.turn.turn:
                 selectable.append(posName)
-
         return selectable
-    
+
     def getMoveable(self, chess, selectable):
         moveables = []
-        #print(f"selectables {selectable}")
         for posName in selectable:
-            #print(f"Sel {select}")
             chess.checkAvailable(posName)
             obj = chess.getObject(posName)
-            if obj == None:
+            if obj is None:
                 continue
-            for newPosName in obj.avails.get():
+            for newPosName in list(obj.avails.get()):
                 newObj = chess.getObject(newPosName)
-                move = Movement(posName, obj, newPosName, newObj)
-                moveables.append(move)
-
+                moveables.append(Movement(posName, obj, newPosName, newObj))
         return moveables
 
-    def getBestMove_Recursive(self, chess, turn, moveArr, cnt):
-        print(f"Calc {cnt}")
-        if cnt == 0:
-            self.arrResult.append(moveArr)
-            return 0, 0
-        #print(f"Get Best Move For {color} : Level-{cnt}")
+    def _orderMoves(self, moveables):
+        """Put captures first to improve alpha-beta pruning efficiency."""
+        captures = [m for m in moveables if m.newObj is not None]
+        quiets   = [m for m in moveables if m.newObj is None]
+        # Within captures, prefer higher-value victims
+        captures.sort(key=lambda m: self.PIECE_VALUES.get(m.newObj.name, 0), reverse=True)
+        return captures + quiets
 
-        # Get Selectable
+    def minimax(self, chess, depth, alpha, beta, maximizing):
+        if chess.turn.gameover or depth == 0:
+            return self.evaluateBoard(chess)
+
         selectables = self.getSelectable(chess)
+        moveables = self._orderMoves(self.getMoveable(chess, selectables))
 
-        # Get Moveable
-        moveables = self.getMoveable(chess, selectables)
+        if not moveables:
+            return self.evaluateBoard(chess)
 
-        final_min = 100
-        final_max = -100
-
-        for mov in moveables:
-            import copy
-            newMove = copy.deepcopy(moveArr)
-
-            if mov.newObj != None:
-                mov.score = mov.newObj.getScoreByColor(turn)
-
-            newMove.append(mov)
-            chess.moveTo(mov.posName, mov.newPosName)
-            min,max = self.getBestMove_Recursive(chess, turn, newMove, cnt - 1)
-            if chess.rollback():
-                chess.rollback()
-
-            min += mov.score
-            max += mov.score
-            if min < final_min:
-                print(f"Update Min {final_min} => {min}")
-                final_min = min
-            if max > final_max:
-                print(f"Update Max {final_max} => {max}")
-                final_max = max
-            if mov.min_score > final_min:
-                mov.min_score = final_min
-            if mov.max_score < final_max:
-                mov.max_score = final_max
-            print(f"Min : {min}, Max : {max} / Final Min : {final_min}, Final Max : {final_max}")
-            for i in range(cnt):
-                print(" ", end="")
-            mov.print()
-
-        for mov in moveables:
-            mov.min_score = final_min
-            mov.max_score = final_max
-
-        return final_min, final_max
+        if maximizing:
+            best = -999999
+            for mov in moveables:
+                chess.moveTo(mov.posName, mov.newPosName)
+                val = self.minimax(chess, depth - 1, alpha, beta, False)
+                if chess.rollback():
+                    chess.rollback()
+                if val > best:
+                    best = val
+                if val > alpha:
+                    alpha = val
+                if beta <= alpha:
+                    break  # beta cut-off
+            return best
+        else:
+            best = 999999
+            for mov in moveables:
+                chess.moveTo(mov.posName, mov.newPosName)
+                val = self.minimax(chess, depth - 1, alpha, beta, True)
+                if chess.rollback():
+                    chess.rollback()
+                if val < best:
+                    best = val
+                if val < beta:
+                    beta = val
+                if beta <= alpha:
+                    break  # alpha cut-off
+            return best
 
     def getBestMove(self):
-        import chess_view
+        import random
 
-        # Generate New Chess For Calculating
         turn = self.chess.turn.turn
         chess = Chess(turn)
-        chess_view = chess_view.ChessView(chess, True, "Chess AI")
         self.copyBoard(chess)
 
-        self.arrResult.clear()
+        selectables = self.getSelectable(chess)
+        moveables = self._orderMoves(self.getMoveable(chess, selectables))
 
-        print(f"Check Move Score")
-        min, max = self.getBestMove_Recursive(chess, turn, [], 2)
-        
-        chess_view.draw()
-
-        best_score = 0
+        best_score = -999999
         best_move = None
-        weight = 1
-        for result in self.arrResult:
-            score = 0
-            total_score = 0
 
-            print(f"Dump")
-            for move in result:
-                if move.newObj != None:
-                    if move.newObj.color == turn:
-                        score -= ( move.newObj.score * weight )
-                    else:
-                        score += ( move.newObj.score * weight )
-                    if score < move.min_score:
-                        move.min_score = score
-                    if score > move.max_score:
-                        move.max_score = score
-                    total_score += (move.max_score + move.min_score)
-                import random
-
-                #score += (random.randint(1,10) / 100)
-                #weight /= 2
-
-                move.print()
-            
-            if total_score >= best_score:
-                #print(f"Update best score : {score}")
+        for mov in moveables:
+            chess.moveTo(mov.posName, mov.newPosName)
+            score = self.minimax(chess, self.DEPTH - 1, -999999, 999999, False)
+            if chess.rollback():
+                chess.rollback()
+            # Tiny random tiebreaker so identical-score moves vary
+            score += random.uniform(0, 0.01)
+            if score > best_score:
                 best_score = score
-                best_move = result
+                best_move = mov
 
-        print(f"Best Move (score : {best_score}), {len(self.arrResult)} cases")
-        for mov in best_move:
-            mov.print()
-
-        return best_move[0]
-    
-    arrResult = []
+        print(f"[AI] Best move score: {best_score:.2f}")
+        if best_move:
+            best_move.print()
+        return best_move
